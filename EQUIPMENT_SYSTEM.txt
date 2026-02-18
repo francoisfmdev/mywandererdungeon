@@ -1,0 +1,21 @@
+ARBORESCENCE - SYSTEME EQUIPEMENT
+=================================
+
+/core/equipment/
+  equipment_manager.lua
+  equipment_slots.lua
+  equipment_validator.lua
+  equipment_aggregator.lua
+  item_instance.lua
+
+/data/items/
+  base_equipment.lua
+
+USAGE:
+  character.equipmentManager:equip(item, "weapon_main")
+  character.equipmentManager:unequip("weapon_main")
+  character:getEffectiveStats()
+  character:getEffectiveAC()
+
+ItemInstance.create("iron_sword", affixes)
+EquipmentManager:toSaveData() / fromSaveData(data)

@@ -1,0 +1,19 @@
+ARBORESCENCE - SYSTEME DONJONS
+==============================
+
+/core/dungeon_generator.lua
+/core/map.lua
+/core/dungeon_run_state.lua
+/data/dungeons/ruins.lua
+
+REGLES:
+  - Parcourabilite garantie : on peut toujours aller de l'entree a la sortie a pied.
+  - Donjon a sens unique : en prenant la sortie on descend, on ne remonte jamais un etage.
+  - Premier donjon (Ruines) : 3 etages, type tutoriel.
+  - A venir : sorties temporelles/alternatives pour permettre au joueur de reculer.
+
+USAGE:
+  local DungeonGenerator = require("core.dungeon_generator")
+  local ruins = require("data.dungeons.ruins")
+  local result = DungeonGenerator.generate(ruins, 1)
+  -- result.map, result.rooms, result.entrance, result.exit

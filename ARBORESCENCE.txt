@@ -1,0 +1,28 @@
+ARBORESCENCE DU PROJET
+======================
+
+/main.lua
+/conf.lua
+/core/
+  app.lua
+  config.lua
+  fs.lua
+  i18n.lua
+  input.lua
+  log.lua
+  router.lua
+  scene_manager.lua
+  save.lua
+/platform/
+  love.lua
+  dummy_platform.lua
+/scenes/
+  main_menu.lua
+  options.lua
+  credits.lua
+  hub.lua
+/data/
+  ui/main_menu.lua
+  input/bindings.lua
+  locale/en.lua
+  locale/fr.lua

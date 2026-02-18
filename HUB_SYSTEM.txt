@@ -1,0 +1,34 @@
+ARBORESCENCE - SYSTEME HUB
+==========================
+
+/scenes/hub/
+  hub_main.lua
+  shop.lua
+  tavern.lua
+  bank.lua
+  house.lua
+  character.lua
+  stats.lua
+  world.lua
+
+/data/hub/
+  hub_main.lua
+  shop.lua
+  tavern.lua
+  bank.lua
+  house.lua
+
+/data/
+  ui_layout.lua
+  assets.lua
+
+/core/
+  hub_screen.lua
+  asset_manager.lua
+  bank_service.lua
+  shop_service.lua
+  quest_service.lua
+  player_data.lua
+
+/assets/
+  (hub_room.png, shop_room.png, etc. - ajouter les images)

@@ -1,0 +1,57 @@
+-- data/ui_layout.lua - Layout unifie : espace, dimensions, style
+return {
+  main_menu = {
+    button_width = 380,
+    button_height = 52,
+    button_gap = 18,
+    panel_padding = 48,
+    title_offset = 60,
+    start_offset = 80,
+  },
+  hub = {
+    button_width = 420,
+    button_height = 50,
+    button_gap = 16,
+    start_y_offset = 90,
+    box_padding = 48,
+    panel_padding = 32,
+    margin_min = 60,
+    width_ratio = 0.72,
+  },
+  options = {
+    button_width = 400,
+    button_height = 48,
+    button_gap = 14,
+    panel_padding = 48,
+    title_offset = 50,
+    start_offset = 70,
+  },
+  bindings = {
+    button_width = 420,
+    button_height = 48,
+    button_gap = 14,
+    panel_padding = 48,
+    title_offset = 50,
+    start_offset = 70,
+  },
+  credits = {
+    panel_padding = 60,
+    title_offset = 80,
+    content_offset = 120,
+    line_spacing = 22,
+  },
+  inventory = {
+    panel_min_width = 380,
+    panel_min_height = 420,
+    line_height = 26,
+    pad = 32,
+  },
+  colors = {
+    bg_dark = { 0.05, 0.04, 0.10, 1 },
+    panel = { 0.06, 0.05, 0.14, 0.92 },
+    panel_border = { 1, 0.55, 0.15, 1 },
+    button = { 0.12, 0.22, 0.6, 0.08 },
+    button_sel = { 0.15, 0.3, 0.8, 0.18 },
+    inner_glow = { 0.2, 0.35, 0.9, 0.15 },
+  },
+}

@@ -1,0 +1,33 @@
+ARBORESCENCE - SYSTEME COMBAT
+=============================
+
+/core/combat/
+  combat_resolver.lua
+  damage_calculator.lua
+  entity_adapter.lua
+
+/data/
+  weapons.lua
+  spells.lua
+  items/base_equipment.lua (damageType sur armes)
+  entities/monsters.lua (resistances par type)
+
+/core/entities/
+  monster_registry.lua
+
+REGLES (modele simplifie):
+  HitChance = 90 + (AttackerModDex - DefenderModDex) * 3, clamp 70-97
+  Roll: random(1-100) <= HitChance
+  weaponBaseDamage = random(damageMin, damageMax)
+  AttackPower = weaponBaseDamage + ModStr + equipmentAttackBonus
+  DefensePower = armorValue + equipmentDefenseBonus
+  RawDamage = max(1, AttackPower - DefensePower) * random(0.9, 1.1)
+  CritChance = 5 + AttackerModDex, clamp max 25%
+  CritDamage = x2
+  Resistances par type: slashing|piercing|blunt, fire|ice|lightning|poison|light|dark
+  >=100% immunite, >100% absorption
+  Pas de skills dans combat
+
+USAGE:
+  CombatResolver.resolveAttack(attacker, defender, weapon)
+  CombatResolver.resolveSpell(caster, target, spell)

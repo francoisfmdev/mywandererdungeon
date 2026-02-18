@@ -1,0 +1,18 @@
+ARBORESCENCE - CIBLAGE ATTAQUE
+==============================
+
+/core/targeting/
+  target_selector.lua  -- findTargetInDirection(px,py,dx,dy,range,map,entityManager,attacker)
+
+/core/input/
+  input_state.lua      -- Mode normal|menu|direction_target, pendingAction, selectedDirection
+
+REGLES :
+- Deplacement vers ennemi = bloque (log.player.blocked), tour non consomme
+- Attaque uniquement via menu contextuel -> selection direction -> Enter
+- Portee = weapon.range (defaut 1)
+- Pas de traversee murs. Premier ennemi dans la ligne = cible.
+
+DATA :
+- data/items/base_equipment.lua : range = 1|2|4 sur armes
+- data/weapons.lua : range sur defs monstres

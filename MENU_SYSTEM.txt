@@ -1,0 +1,23 @@
+ARBORESCENCE - SYSTEME MENUS
+============================
+
+/core/ui/
+  menu_renderer.lua   -- Rendu menu centre generique
+  menu_controller.lua -- Navigation up/down, confirm, back, clic souris
+
+/scenes/ui/
+  context_menu.lua    -- Menu contextuel (Enter/Space)
+  pause_menu.lua      -- Menu pause (ESC)
+
+/data/ui/
+  context_menu.lua    -- Donnees menu contextuel
+  pause_menu.lua      -- Donnees menu pause
+
+SUPPRIME :
+  scenes/dungeon_menu.lua
+  Sauvegarde manuelle
+
+FLOW :
+- Enter/Space : ouvre menu contextuel (attack, cast, inventory, wait)
+- ESC : ouvre menu pause (resume, options, quit_to_hub, quit_game)
+- Pas de menu TAB. Pas de sauvegarde manuelle.

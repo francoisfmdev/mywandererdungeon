@@ -1,0 +1,25 @@
+ARBORESCENCE - SYSTEME PIEGES (non bloquants)
+=============================================
+
+/core/traps/trap_generator.lua
+/core/traps/trap_instance.lua
+/core/traps/trap_resolver.lua
+/core/traps/trap_registry.lua
+/data/traps/traps.lua
+
+REGLES:
+  - Pieges invisibles, non bloquants.
+  - Declenchement a l'entree sur la case.
+  - Pas de detection, pas de desamorcage.
+  - oneShot ou permanent.
+  - state: "armed" | "triggered" | "disabled" (extensibilite).
+
+CONFIG DONJON (ex. data/dungeons/ruins.lua):
+  traps = {
+    density = 0.05,
+    types = { { id = "spike_trap", weight = 10 }, ... },
+  }
+
+USAGE:
+  TrapGenerator.generate(map, dungeonConfig, depth, entrance, exit)
+  TrapResolver.trigger(trap, entity)
