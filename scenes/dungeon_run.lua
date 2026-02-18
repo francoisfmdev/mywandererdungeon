@@ -13,7 +13,7 @@ local octo = require("core.grid.octo_dirs")
 local dungeon_renderer = require("core.render.dungeon_renderer")
 local MonsterRegistry = require("core.entities.monster_registry")
 
-local CELL_W, CELL_H = 32, 32
+local CELL_W, CELL_H = 41, 41  -- ~28% plus grandes que 32 (37+10%)
 local MINIMAP_W, MINIMAP_H = 160, 160
 local MINIMAP_PAD = 8
 local STATS_PANEL_H = 92
@@ -24,6 +24,7 @@ local BOTTOM_RAISE = 0.10  -- 10% de hauteur pour éviter débordement texte / c
 local LOG_PANEL_W = 340
 local LOG_PREVIEW_LINES = 3
 local LOG_LINE_H = 16
+local OBSERVER_PANEL_H = 120
 
 local function get_minimap_y()
   local h = platform.gfx_height()
@@ -56,7 +57,12 @@ local function draw_stats_panel()
 
   local x = px + 8
   local y = py + 6
-  platform.gfx_draw_text(i18n.t("hub.character.level") .. " " .. char:getLevel(), x, y)
+  local floorLabel = ""
+  local state = dungeon_run_state.get()
+  if state and state.currentFloor and state.totalFloors and state.totalFloors > 1 then
+    floorLabel = " | E" .. tostring(state.currentFloor) .. "/" .. tostring(state.totalFloors)
+  end
+  platform.gfx_draw_text(i18n.t("hub.character.level") .. " " .. char:getLevel() .. floorLabel, x, y)
   y = y + 18
   platform.gfx_draw_text(i18n.t("hub.character.hp"), x, y - 2)
   draw_stat_bar(x, y + 2, char:getHP(), char:getMaxHP(), { 0.55, 0.15, 0.15, 1 })
@@ -67,7 +73,7 @@ local function draw_stats_panel()
   platform.gfx_draw_text(i18n.t("hub.character.gold") .. " " .. player_data.get_gold(), x, y)
 end
 
-local function draw_minimap(map, playerX, playerY)
+local function draw_minimap(map, playerX, playerY, exitPos)
   local w = platform.gfx_width()
   local mx = w - MINIMAP_W - MINIMAP_PAD
   local my = get_minimap_y()
@@ -88,6 +94,9 @@ local function draw_minimap(map, playerX, playerY)
         local fill = { 0.2, 0.15, 0.1, 0.9 }
         if tile and tile.type == "floor" then
           fill = { 0.25, 0.2, 0.35, 0.95 }
+        end
+        if tile and tile.isExit then
+          fill = { 0.3, 0.85, 0.5, 0.95 }
         end
         platform.gfx_draw_rect("fill", rx, ry, math.ceil(scaleX) + 1, math.ceil(scaleY) + 1, fill)
       end
@@ -134,8 +143,8 @@ local function draw_observer_hud(monsterDef, entity, dangerKey)
   local lineH = 18
   local pad = 8
 
-  platform.gfx_draw_rect("fill", panelX - 2, panelY - 2, panelW + 4, 120, { 0.06, 0.05, 0.12, 0.95 })
-  platform.gfx_draw_rect("line", panelX - 2, panelY - 2, panelW + 4, 120, { 1, 0.55, 0.15, 1 })
+  platform.gfx_draw_rect("fill", panelX - 2, panelY - 2, panelW + 4, OBSERVER_PANEL_H, { 0.06, 0.05, 0.12, 0.95 })
+  platform.gfx_draw_rect("line", panelX - 2, panelY - 2, panelW + 4, OBSERVER_PANEL_H, { 1, 0.55, 0.15, 1 })
 
   local name = monsterDef.nameKey and i18n.t(monsterDef.nameKey) or (monsterDef.id or "?")
   local desc = monsterDef.descriptionKey and i18n.t(monsterDef.descriptionKey) or ""
@@ -214,14 +223,43 @@ function M.new()
       return
     end
 
+    if state.victory then
+      dungeon_run_state.clear()
+      local save = require("core.save")
+      save.save()
+      router.dispatch("scene:replace:hub_main")
+      return
+    end
+
     local pending = require("core.pending_dungeon_action").get()
     if pending and pending.type == "use_item" then
       if pending.needsTarget then
         input_state.setMode("use_item_target")
         input_state.setUseItemIndex(pending.itemIndex)
         local opx, opy = dungeon_run_state.get_player_pos()
-        if opx and opy then
-          input_state.setObserverCursor(opx, opy)
+        local cursorGx, cursorGy = opx, opy
+        local inv = require("core.player_data").get_inventory()
+        local item = pending.itemIndex and inv[pending.itemIndex]
+        if item and opx and opy then
+          local ConsumableRegistry = require("core.consumables.consumable_registry")
+          local def = ConsumableRegistry.get(item.id or (item.base and item.base.id))
+          if def and def.type == "wand" and def.spellId then
+            local spell_registry = require("core.spells.spell_registry")
+            local spell = spell_registry.get(def.spellId)
+            local range = (spell and spell.range) or 8
+            local target_selector = require("core.targeting.target_selector")
+            local player = state.entityManager:getPlayer()
+            local nearest = target_selector.findNearestEnemyInRange(opx, opy, range, state.map, state.entityManager, player)
+            if nearest then
+              cursorGx = nearest.x or nearest.gridX
+              cursorGy = nearest.y or nearest.gridY
+            end
+          elseif def and def.canTargetSelf then
+            cursorGx, cursorGy = opx, opy
+          end
+        end
+        if cursorGx and cursorGy then
+          input_state.setObserverCursor(cursorGx, cursorGy)
         end
       else
         dungeon_run_state.process_turn({
@@ -330,21 +368,47 @@ function M.new()
         local sdx, sdy = input_state.getSelectedDirection()
         if sdx ~= 0 or sdy ~= 0 then
           local player = state.entityManager:getPlayer()
-          local weapon = player and player._character and player._character.equipmentManager and player._character.equipmentManager:getEquipped("weapon_main")
-          weapon = weapon and (weapon.base or weapon)
-          local range = (weapon and weapon.range) or 1
-          local target_selector = require("core.targeting.target_selector")
-          local target = target_selector.findTargetInDirection(
-            player.x or player.gridX, player.y or player.gridY,
-            sdx, sdy, range, state.map, state.entityManager, player
-          )
-          input_state.setMode("normal")
-          input_state.clearPending()
-          if target then
-            dungeon_run_state.process_turn({ type = "attack", targetId = target.id, weapon = weapon })
+          local pendingAction = input_state.getPendingAction()
+          local spellId = input_state.getPendingSpellId()
+
+          if pendingAction == "cast" and spellId then
+            local spell_registry = require("core.spells.spell_registry")
+            local spell = spell_registry.get(spellId)
+            local range = (spell and spell.range) or 8
+            local target_selector = require("core.targeting.target_selector")
+            local tgt = target_selector.findTargetOrCellInDirection(
+              player.x or player.gridX, player.y or player.gridY,
+              sdx, sdy, range, state.map, state.entityManager, player
+            )
+            input_state.setMode("normal")
+            input_state.clearPending()
+            if tgt then
+              if tgt.id then
+                dungeon_run_state.process_turn({ type = "cast", spellId = spellId, targetId = tgt.id })
+              else
+                dungeon_run_state.process_turn({ type = "cast", spellId = spellId, targetGx = tgt.x, targetGy = tgt.y })
+              end
+            else
+              local log_mgr = require("core.game_log.log_manager")
+              log_mgr.add("info", { messageKey = "log.player.invalid_target", params = {} })
+            end
           else
-            local log_mgr = require("core.game_log.log_manager")
-            log_mgr.add("attack", { messageKey = "log.player.invalid_target", params = {} })
+            local weapon = player and player._character and player._character.equipmentManager and player._character.equipmentManager:getEquipped("weapon_main")
+            weapon = weapon and (weapon.base or weapon)
+            local range = (weapon and weapon.range) or 1
+            local target_selector = require("core.targeting.target_selector")
+            local target = target_selector.findTargetInDirection(
+              player.x or player.gridX, player.y or player.gridY,
+              sdx, sdy, range, state.map, state.entityManager, player
+            )
+            input_state.setMode("normal")
+            input_state.clearPending()
+            if target then
+              dungeon_run_state.process_turn({ type = "attack", targetId = target.id, weapon = weapon })
+            else
+              local log_mgr = require("core.game_log.log_manager")
+              log_mgr.add("attack", { messageKey = "log.player.invalid_target", params = {} })
+            end
           end
         end
       elseif input.consume("back") then
@@ -377,7 +441,8 @@ function M.new()
         local log_mgr = require("core.game_log.log_manager")
         local nEntries = #log_mgr.get_recent(LOG_PREVIEW_LINES)
         local logClickH = (nEntries > 0 and (nEntries * LOG_LINE_H + 24) or 0)
-        if logClickH > 0 and mx >= MINIMAP_PAD and mx < MINIMAP_PAD + LOG_PANEL_W and my >= MINIMAP_PAD + 28 and my < MINIMAP_PAD + 30 + logClickH then
+        local logClickY = 12 + OBSERVER_PANEL_H + 12
+        if logClickH > 0 and mx >= MINIMAP_PAD and mx < MINIMAP_PAD + LOG_PANEL_W and my >= logClickY and my < logClickY + logClickH then
           platform.mouse_consume_click(1)
           router.dispatch("scene:push:log")
           return
@@ -413,8 +478,10 @@ function M.new()
     if dx ~= 0 or dy ~= 0 then
       local nx, ny = (px or 0) + dx, (py or 0) + dy
       if state.map:inBounds(nx, ny) and state.map:isWalkable(nx, ny) then
-        dungeon_run_state.process_turn({ type = "move", dx = dx, dy = dy })
-        if dungeon_run_state.getPendingGroundLoot() then
+        local turnResult = dungeon_run_state.process_turn({ type = "move", dx = dx, dy = dy })
+        if turnResult and turnResult.nextFloor then
+          dungeon_run_state.nextFloor()
+        elseif dungeon_run_state.getPendingGroundLoot() then
           router.dispatch("scene:push:dungeon_ground_loot")
         end
       end
@@ -534,10 +601,11 @@ function M.new()
     draw_stats_panel()
 
     -- Journal unifie (3 dernieres phrases, clic = 200 details), sans cadre
+    -- Place sous le HUD observer pour eviter chevauchement
     local log_mgr = require("core.game_log.log_manager")
     local log_entries = log_mgr.get_recent(LOG_PREVIEW_LINES)
     local logX = MINIMAP_PAD
-    local logY = MINIMAP_PAD + 30
+    local logY = 12 + OBSERVER_PANEL_H + 12
     if #log_entries > 0 then
       for i, entry in ipairs(log_entries) do
         local text = i18n.t(entry.messageKey, entry.params or {})

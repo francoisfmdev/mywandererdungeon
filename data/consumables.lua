@@ -90,4 +90,31 @@ return {
     canTargetMonster = true,
     canTargetSelf = true,
   },
+
+  -- Munitions : fleches, carreaux, balles (consommees par arc / arbalete / gun)
+  arrow = {
+    id = "arrow",
+    nameKey = "item.arrow",
+    type = "ammo",
+    ammoFor = "arrow",
+  },
+  bolt = {
+    id = "bolt",
+    nameKey = "item.bolt",
+    type = "ammo",
+    ammoFor = "bolt",
+  },
+  bullet = {
+    id = "bullet",
+    nameKey = "item.bullet",
+    type = "ammo",
+    ammoFor = "bullet",
+  },
+
+  -- Objet de victoire (Ruines) : ramasse au dernier etage = victoire donjon
+  ruins_relic = {
+    id = "ruins_relic",
+    nameKey = "item.ruins_relic",
+    type = "quest",
+  },
 }

@@ -80,7 +80,8 @@ function M.new(initialMode)
 
     local invY = ty + 45
     for i, item in ipairs(list) do
-      local label = item_display.getDisplayName(item) .. " x1"
+      local cnt = item.count or 1
+      local label = item_display.getDisplayName(item) .. (cnt > 1 and (" x" .. cnt) or " x1")
       local slotY = invY + (i - 1) * (lh + 4)
       local isSel = (i == _sel)
       inventory_hud.draw_item_slot(lx + 10, slotY, pw - 20, lh + 4, label, isSel)

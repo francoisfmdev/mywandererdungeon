@@ -117,16 +117,18 @@ function M.update(playerAction, gameState)
 
   local actionType = playerAction.type
   local resolved = false
+  local extra = nil
   if actionType == "move" then
     local dx, dy = playerAction.dx or 0, playerAction.dy or 0
     if dx ~= 0 or dy ~= 0 then
-      local _, consumed = ActionResolver.execute({
+      local _, consumed, ex = ActionResolver.execute({
         type = "move",
         entity = player,
         dx = dx,
         dy = dy,
       }, gameState, events)
       resolved = consumed
+      extra = ex
     end
   elseif actionType == "attack" then
     local target = playerAction.targetId and entityManager:getEntity(playerAction.targetId)
@@ -149,12 +151,18 @@ function M.update(playerAction, gameState)
     end
   elseif actionType == "cast" then
     local target = playerAction.targetId and entityManager:getEntity(playerAction.targetId)
-    local _, consumed = ActionResolver.execute({
+    if not target and (playerAction.targetGx or playerAction.targetGy) then
+      target = { x = playerAction.targetGx, gridX = playerAction.targetGx, y = playerAction.targetGy, gridY = playerAction.targetGy }
+    end
+    local castAction = {
       type = "cast",
       caster = player,
       target = target,
       spellId = playerAction.spellId,
-    }, gameState, events)
+      targetGx = playerAction.targetGx,
+      targetGy = playerAction.targetGy,
+    }
+    local _, consumed = ActionResolver.execute(castAction, gameState, events)
     resolved = consumed
   elseif actionType == "wait" then
     local _, consumed = ActionResolver.execute({ type = "wait" }, gameState, events)
@@ -178,6 +186,14 @@ function M.update(playerAction, gameState)
       log_manager.add(e.type or "info", { messageKey = e.messageKey, params = e.params or {} })
     end
     return { events = events, turnNumber = gameState.turnNumber, gameOver = false }
+  end
+
+  -- Passage a l'etage suivant : pas de phase monstres
+  if extra and extra.nextFloor then
+    for _, e in ipairs(events) do
+      log_manager.add(e.type or "info", { messageKey = e.messageKey, params = e.params or {} })
+    end
+    return { events = events, turnNumber = turnNumber, gameOver = false, nextFloor = true }
   end
 
   apply_effect_phase(player, turnNumber, events)

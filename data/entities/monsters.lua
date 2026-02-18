@@ -83,4 +83,34 @@ return {
       { id = "dagger", chance = 0.05 },
     },
   },
+
+  -- Boss des Ruines (dernier etage, condition victoire "boss")
+  skeleton_lord = {
+    id = "skeleton_lord",
+    nameKey = "entity.skeleton_lord",
+    descriptionKey = "entity.skeleton_lord_desc",
+    isBoss = true,
+    hp = 35,
+    stats = { strength = 8, dexterity = 5, constitution = 8, intelligence = 4, wisdom = 4, charisma = 3 },
+    weapon = "sword",
+    resistances = {
+      slashing = 10,
+      piercing = 50,
+      blunt = -25,
+      fire = 0,
+      ice = 0,
+      lightning = 0,
+      water = 0,
+      earth = 0,
+      vegetal = 0,
+      poison = 0,
+      light = -50,
+      dark = 25,
+    },
+    loot = {
+      { id = "gold", chance = 1, amountMin = 15, amountMax = 30 },
+      { id = "potion_hp", chance = 0.5 },
+      { id = "iron_sword", chance = 0.3 },
+    },
+  },
 }

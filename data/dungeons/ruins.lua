@@ -2,6 +2,15 @@
 return {
   id = "ruins",
 
+  -- Nombre d'etages a parcourir avant la condition de victoire
+  totalFloors = 3,
+  -- Condition de victoire au dernier etage : "boss" (battre le boss) ou "object" (ramasser l'objet)
+  winCondition = "boss",
+  -- Si winCondition == "boss" : id du monstre boss (doit exister dans monsters.lua)
+  bossId = "skeleton_lord",
+  -- Si winCondition == "object" : id de l'objet obligatoire (doit exister dans consumables.lua)
+  winObjectId = "ruins_relic",
+
   map = {
     width = 80,
     height = 80,
@@ -11,10 +20,12 @@ return {
   sprites = {
     floor = "assets/dungeons/ruins/floor.png",
     wall = "assets/dungeons/ruins/wall.png",
+    exit = "assets/dungeons/ruins/exit.png",  -- escalier/portail, fallback couleur si absent
   },
   entitySprites = {
     player = "assets/dungeons/ruins/entities/player.png",
     skeleton = "assets/dungeons/ruins/entities/skeleton.png",
+    skeleton_lord = "assets/dungeons/ruins/entities/skeleton.png",
     rat = "assets/dungeons/ruins/entities/rat.png",
     cultist = "assets/dungeons/ruins/entities/cultist.png",
   },
@@ -80,6 +91,11 @@ return {
         { id = "dagger", weight = 8 },
         { id = "iron_spear", weight = 2 },
         { id = "mace", weight = 4 },
+        { id = "short_bow", weight = 2 },
+        { id = "crossbow", weight = 1 },
+        { id = "pistol", weight = 1 },
+        { id = "throwing_knife", weight = 4 },
+        { id = "javelin", weight = 2 },
         { id = "wooden_shield", weight = 5 },
         { id = "leather_armor", weight = 4 },
       },
@@ -90,6 +106,9 @@ return {
         { id = "potion_minor_hp", weight = 10 },
         { id = "potion_hp", weight = 5 },
         { id = "potion_mp", weight = 5 },
+        { id = "arrow", weight = 6 },
+        { id = "bolt", weight = 3 },
+        { id = "bullet", weight = 2 },
         { id = "wand_fireball", weight = 2 },
         { id = "wand_heal", weight = 2 },
         { id = "card_teleport", weight = 1 },

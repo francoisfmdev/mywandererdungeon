@@ -99,6 +99,16 @@ function M.execute(action, gameState, events)
     end
 
     if entity._character then
+      -- Marche sur la sortie : passage a l'etage suivant (si pas dernier etage)
+      local exit = gameState.exit
+      if exit and nx == exit.x and ny == exit.y then
+        local currentFloor = gameState.currentFloor or 1
+        local totalFloors = gameState.totalFloors or 1
+        if currentFloor < totalFloors then
+          return events, true, { reachedExit = true, nextFloor = true }
+        end
+      end
+
       local gold, items = map:getGroundLoot(nx, ny)
       local player_data = require("core.player_data")
       if gold > 0 then
@@ -127,6 +137,43 @@ function M.execute(action, gameState, events)
     local defender = action.defender
     local weapon = action.weapon or attacker.weapon or gameState.defaultWeapon
     if not attacker or not defender or not weapon then return events, false end
+
+    -- Verifier et consommer munitions (arc, arbalete, gun) ou arme de jet
+    local weaponData = weapon.base or weapon
+    local ammoType = weaponData.ammoType
+    local ammoId = weaponData.ammoId or weaponData.id
+    if ammoType and attacker._character then
+      local player_data = require("core.player_data")
+      local hasAmmo = false
+      local consumeFromEquipment = false
+      if ammoType == "throwing" then
+        -- Arme de jet : consomme l'arme equipee elle-meme (1 par tir)
+        hasAmmo = true
+        consumeFromEquipment = true
+      else
+        -- Arc / arbalete / gun : munitions en inventaire
+        hasAmmo = (player_data.count_ammo(ammoId) or 0) > 0
+      end
+      if not hasAmmo then
+        local i18n = require("core.i18n")
+        local ConsumableRegistry = require("core.consumables.consumable_registry")
+        local ammoDef = ConsumableRegistry.get(ammoId)
+        local ammoName = ammoDef and ammoDef.nameKey and i18n.t(ammoDef.nameKey)
+          or i18n.t("item.equipment." .. ammoId) or ammoId
+        push_event(events, "attack", "log.attack.no_ammo", { ammo = ammoName })
+        log_manager.add("attack", { messageKey = "log.attack.no_ammo", params = { ammo = ammoName } })
+        return events, false
+      end
+      if consumeFromEquipment then
+        local slot = "weapon_main"
+        local em = attacker.equipmentManager
+        if em and em:getEquipped(slot) then
+          em:unequip(slot)
+        end
+      else
+        player_data.consume_one_ammo(ammoId)
+      end
+    end
 
     local i18n = require("core.i18n")
     local attName = attacker.nameKey and i18n.t(attacker.nameKey) or (attacker.name or "attacker")
@@ -170,8 +217,8 @@ function M.execute(action, gameState, events)
 
     local radius = tonumber(spell.radius) or 0
     if radius > 0 and entityManager then
-      local cx = (target and (target.x or target.gridX)) or (caster.x or caster.gridX)
-      local cy = (target and (target.y or target.gridY)) or (caster.y or caster.gridY)
+      local cx = (target and (target.x or target.gridX)) or (action.targetGx) or (caster.x or caster.gridX)
+      local cy = (target and (target.y or target.gridY)) or (action.targetGy) or (caster.y or caster.gridY)
       if cx and cy then
         local hits = combat_resolver.resolveSpellArea(caster, spell, cx, cy, entityManager)
         for _, h in ipairs(hits) do

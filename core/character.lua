@@ -272,6 +272,43 @@ function M.new()
   return self
 end
 
+function M.toSaveData(char)
+  if not char then return nil end
+  return {
+    level = char:getLevel(),
+    xp = char:getXP(),
+    stat_points = char:getStatPoints(),
+    stats = char._stats and (function()
+      local t = {}
+      for k, v in pairs(char._stats) do t[k] = v end
+      return t
+    end)(),
+    hp = char:getHP(),
+    mp = char:getMP(),
+    equipment = char.equipmentManager and char.equipmentManager:toSaveData(),
+  }
+end
+
+function M.fromSaveData(data)
+  if not data then return nil end
+  local char = M.new()
+  if not char then return nil end
+  if data.level then char._level = data.level end
+  if data.xp then char._xp = data.xp end
+  if data.stat_points then char._stat_points = data.stat_points end
+  if data.stats and type(data.stats) == "table" then
+    for k, v in pairs(data.stats) do char._stats[k] = v end
+  end
+  if data.equipment and char.equipmentManager then
+    char.equipmentManager:fromSaveData(data.equipment)
+  end
+  char:reset()
+  if data.hp then char:setHP(data.hp) end
+  if data.mp then char:setMP(data.mp) end
+  if char._syncEffectEntityFromChar then char:_syncEffectEntityFromChar() end
+  return char
+end
+
 M.isNaturalOne = function(roll)
   return roll == 1
 end

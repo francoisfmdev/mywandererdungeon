@@ -19,11 +19,40 @@ function M.init(sm, plat)
     if not state then return end
     if sub == "attack" then
       local input_state = require("core.input.input_state")
+      local target_selector = require("core.targeting.target_selector")
       input_state.setMode("direction_target")
       input_state.setPendingAction("attack")
-      input_state.setSelectedDirection(0, -1)  -- defaut: haut
+      local player = state.entityManager:getPlayer()
+      local weapon = player and player._character and player._character.equipmentManager
+        and player._character.equipmentManager:getEquipped("weapon_main")
+      weapon = weapon and (weapon.base or weapon)
+      local range = (weapon and weapon.range) or 1
+      local px, py = player and (player.x or player.gridX), player and (player.y or player.gridY)
+      local _, dx, dy = target_selector.findNearestEnemyInRange(
+        px, py, range, state.map, state.entityManager, player
+      )
+      input_state.setSelectedDirection(dx, dy)
     elseif sub == "cast" then
-      require("core.dungeon_run_state").process_turn({ type = "cast", spellId = "fireball", targetId = nil })
+      local spell_registry = require("core.spells.spell_registry")
+      local spellId = "fireball"
+      local spell = spell_registry.get(spellId)
+      if spell and (spell.targetType or "projectile") == "buff" then
+        local player = state.entityManager:getPlayer()
+        require("core.dungeon_run_state").process_turn({ type = "cast", spellId = spellId, targetId = player and player.id })
+      else
+        local input_state = require("core.input.input_state")
+        local target_selector = require("core.targeting.target_selector")
+        input_state.setMode("direction_target")
+        input_state.setPendingAction("cast")
+        input_state.setPendingSpellId(spellId)
+        local player = state.entityManager:getPlayer()
+        local range = (spell and spell.range) or 8
+        local px, py = player and (player.x or player.gridX), player and (player.y or player.gridY)
+        local _, dx, dy = target_selector.findNearestEnemyInRange(
+          px, py, range, state.map, state.entityManager, player
+        )
+        input_state.setSelectedDirection(dx, dy)
+      end
     elseif sub == "inventory" then
       scene_manager.push("hub.inventory")
     elseif sub == "wait" then
@@ -74,6 +103,14 @@ function M.dispatch(action_str)
       log_mgr.add("info", { messageKey = "log.info.welcome", params = {} })
       scene_manager.replace("hub_main")
       return true
+    end
+    if cmd == "continue" then
+      local save = require("core.save")
+      if save.has_save() and save.load() then
+        scene_manager.replace("hub_main")
+        return true
+      end
+      return false
     end
   elseif domain == "quit" then
     if platform and platform.quit then

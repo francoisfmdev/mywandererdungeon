@@ -8,7 +8,7 @@ return {
     },
     {
       i18n_key = "ui.main_menu.continue",
-      action = "scene:replace:hub_main",
+      action = "game:continue",
       visible = "has_save",
     },
     {

@@ -3,6 +3,7 @@ local M = {}
 
 local _mode = "normal"
 local _pendingAction = nil
+local _pendingSpellId = nil
 local _selectedDx, _selectedDy = 0, 0
 local _observerGx, _observerGy = nil, nil
 
@@ -16,6 +17,7 @@ function M.setMode(mode)
   _mode = mode or "normal"
   if mode ~= "direction_target" then
     _selectedDx, _selectedDy = 0, 0
+    _pendingSpellId = nil
   end
   if mode ~= "observer" and mode ~= "use_item_target" then
     _observerGx, _observerGy = nil, nil
@@ -33,8 +35,17 @@ function M.setPendingAction(action)
   _pendingAction = action
 end
 
+function M.getPendingSpellId()
+  return _pendingSpellId
+end
+
+function M.setPendingSpellId(spellId)
+  _pendingSpellId = spellId
+end
+
 function M.clearPending()
   _pendingAction = nil
+  _pendingSpellId = nil
   _selectedDx, _selectedDy = 0, 0
 end
 
@@ -78,6 +89,7 @@ end
 function M.reset()
   _mode = "normal"
   _pendingAction = nil
+  _pendingSpellId = nil
   _selectedDx, _selectedDy = 0, 0
   _observerGx, _observerGy = nil, nil
   _useItemIndex = nil

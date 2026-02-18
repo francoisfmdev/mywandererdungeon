@@ -161,6 +161,8 @@ function M.new()
       local label = name
       if def and def.type == "wand" and item.charges then
         label = name .. " (" .. item.charges .. "/" .. (def.chargesMax or "?") .. ")"
+      elseif item.count and item.count > 1 then
+        label = name .. " x" .. item.count
       else
         label = name .. " x1"
       end

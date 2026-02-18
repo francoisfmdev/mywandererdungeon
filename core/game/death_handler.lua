@@ -51,6 +51,12 @@ function M.processDeaths(entityManager, events, gameState)
     })
     log_manager.add("death", { messageKey = "log.death.killed", params = { defender = name } })
 
+    -- Victoire si boss du donjon tue
+    if entity.isBoss and gameState and entity.monsterId == gameState.bossId then
+      gameState.victory = true
+      log_manager.add("info", { messageKey = "log.info.victory", params = {} })
+    end
+
     if not entity.isPlayer and entity.monsterId and player then
       local loot = M.rollLoot(entity, gameState and gameState.dungeonConfig)
       for _, drop in ipairs(loot) do

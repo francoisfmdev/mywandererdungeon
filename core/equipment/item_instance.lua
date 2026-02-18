@@ -78,12 +78,17 @@ end
 
 function M.toSaveData(item)
   if not item then return nil end
+  local id = item.id or (item.base and item.base.id)
+  if not id then return nil end
   local d = {
-    id = item.id or (item.base and item.base.id),
+    id = id,
     affixes = item.affixes,
     itemLevel = item.itemLevel,
     identified = item.identified,
     cursed = item.cursed,
+    consumable = item.consumable,
+    charges = item.charges,
+    count = item.count,
   }
   return d
 end
@@ -94,8 +99,20 @@ function M.fromSaveData(data)
   if item then
     item.identified = data.identified ~= false
     item.cursed = data.cursed or false
+    return item
   end
-  return item
+  -- Consommable (pas dans base_equipment)
+  local ConsumableRegistry = require("core.consumables.consumable_registry")
+  if ConsumableRegistry.get(data.id) then
+    local def = ConsumableRegistry.get(data.id)
+    local cons = { id = data.id, consumable = true }
+    if def and def.type == "wand" and def.chargesMax then
+      cons.charges = data.charges or def.chargesMax
+    end
+    if data.count then cons.count = data.count end
+    return cons
+  end
+  return { id = data.id, consumable = true, charges = data.charges, count = data.count }
 end
 
 return M

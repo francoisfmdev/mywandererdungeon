@@ -20,6 +20,7 @@ local function get_sprite(path)
 end
 
 --- Dessine une case (sol/mur). Utilise dungeonConfig.sprites[type] ou tile.sprite, sinon couleur.
+--- Si tile.isExit, dessine un escalier/portail visible (teinte verte/jaune).
 function M.draw_tile(tile, screenX, screenY, cellW, cellH)
   local fill = { 0.1, 0.08, 0.12, 1 }
   if tile and tile.type == "floor" then
@@ -30,7 +31,7 @@ function M.draw_tile(tile, screenX, screenY, cellW, cellH)
   if tile then
     spritePath = tile.sprite
     if not spritePath and _dungeon_config and _dungeon_config.sprites then
-      spritePath = _dungeon_config.sprites[tile.type]
+      spritePath = tile.isExit and _dungeon_config.sprites.exit or _dungeon_config.sprites[tile.type]
     end
   end
   local img = spritePath and get_sprite(spritePath)
@@ -40,6 +41,12 @@ function M.draw_tile(tile, screenX, screenY, cellW, cellH)
   else
     platform.gfx_draw_rect("fill", screenX, screenY, cellW, cellH, fill)
     platform.gfx_draw_rect("line", screenX, screenY, cellW, cellH, { 0.3, 0.25, 0.4, 0.8 })
+    -- Sortie : symbole escalier (rectangle central + couleur distincte)
+    if tile and tile.isExit then
+      local pad = math.floor(cellW * 0.25)
+      platform.gfx_draw_rect("fill", screenX + pad, screenY + pad, cellW - pad * 2, cellH - pad * 2, { 0.4, 0.85, 0.5, 0.9 })
+      platform.gfx_draw_rect("line", screenX + pad, screenY + pad, cellW - pad * 2, cellH - pad * 2, { 0.6, 1, 0.7, 1 })
+    end
   end
 end
 

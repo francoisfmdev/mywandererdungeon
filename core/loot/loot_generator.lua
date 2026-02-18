@@ -87,6 +87,9 @@ local function create_item_from_id(itemId, itemType, dungeonConfig, fromMonster)
     if def and def.type == "wand" and def.chargesMax then
       item.charges = def.chargesMax
     end
+    if def and def.type == "ammo" then
+      item.count = math.random(5, 15)
+    end
     return item
   end
   return { id = itemId }

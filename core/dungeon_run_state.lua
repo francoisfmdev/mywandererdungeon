@@ -6,8 +6,10 @@ local game_state = require("core.game_state")
 
 local _state = nil
 local _gen_count = 0
+local _dungeon_config = nil
 
 function M.start(dungeonConfig)
+  _dungeon_config = dungeonConfig or require("data.dungeons.ruins")
   _gen_count = _gen_count + 1
   local seed = math.floor((os.time() or 0) * 1000)
   if love and love.timer and love.timer.getTime then
@@ -17,12 +19,32 @@ function M.start(dungeonConfig)
   math.randomseed(seed)
 
   local character = game_state.get_character()
-  _state = DungeonRun.start(dungeonConfig, character)
+  _state = DungeonRun.start(_dungeon_config, character, 1)
   if not _state then return nil end
 
   local log_manager = require("core.game_log.log_manager")
   log_manager.clear()
   _state.minimapVisible = true
+  return _state
+end
+
+--- Passage a l'etage suivant (conserve personnage et inventaire)
+function M.nextFloor()
+  if not _state or not _dungeon_config then return nil end
+  local character = game_state.get_character()
+  local currentFloor = _state.currentFloor or 1
+  local totalFloors = _state.totalFloors or 1
+  local minimapWasVisible = _state.minimapVisible ~= false
+  if currentFloor >= totalFloors then return nil end
+
+  local log_manager = require("core.game_log.log_manager")
+  log_manager.add("info", { messageKey = "log.info.floor_descend", params = { floor = currentFloor + 1 } })
+
+  _gen_count = _gen_count + 1
+  math.randomseed((os.time() or 0) * 1000 + _gen_count * 7919)
+  _state = DungeonRun.start(_dungeon_config, character, currentFloor + 1)
+  if not _state then return nil end
+  _state.minimapVisible = minimapWasVisible
   return _state
 end
 
@@ -83,6 +105,10 @@ end
 
 function M.getPendingGroundLoot()
   return _pending_ground_loot
+end
+
+function M.setVictory()
+  if _state then _state.victory = true end
 end
 
 function M.clearPendingGroundLoot()

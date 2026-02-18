@@ -102,7 +102,13 @@ function M.new()
       if item then
         local itemName = item_display.getDisplayName(item)
         log_manager.add("loot", { messageKey = "log.loot.picked", params = { item = itemName } })
+        if state.map then state.map:removeGroundItemAt(_gx, _gy, _sel) end
         player_data.add_item(item)
+        local itemId = item.id or (item.base and item.base.id)
+        if state and state.winObjectId and itemId == state.winObjectId then
+          dungeon_run_state.setVictory()
+          log_manager.add("info", { messageKey = "log.info.victory", params = {} })
+        end
         table.remove(_items, _sel)
         _sel = math.max(1, math.min(_sel, #_items))
       end
@@ -131,9 +137,10 @@ function M.new()
     local y = panelY + pad + 22
     for i, item in ipairs(_items) do
       local name = item_display.getDisplayName(item)
+      local cntSuffix = (item.count and item.count > 1) and (" x" .. item.count) or ""
       local isEquip = item.base and item.base.slot
       local suffix = isEquip and " [A/D]" or ""
-      local label = name .. suffix
+      local label = name .. cntSuffix .. suffix
       if i == _sel then
         platform.gfx_draw_rect("fill", panelX + pad - 2, y - 2, panelW - pad * 2 + 4, lh + 2, { 0.2, 0.15, 0.3, 0.6 })
       end

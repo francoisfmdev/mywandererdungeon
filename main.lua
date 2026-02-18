@@ -1,13 +1,21 @@
 -- main.lua - Bootstrap Love2D
 local app, platform
+local _ready = false
 
 function love.load()
+  -- Fenetre demarre hors ecran (conf.lua) + masquee
+  if love.window then
+    if love.window.setVisible then love.window.setVisible(false) end
+  end
+
   package.path = package.path .. ";?.lua;?/init.lua;"
   platform = require("platform.love")
   app = require("core.app")
   if not app.init(platform) then
     error("App init failed")
   end
+  -- Recentrer (fenetre toujours masquee)
+  if love.window and love.window.center then love.window.center() end
 end
 
 function love.update(dt)
@@ -16,6 +24,11 @@ end
 
 function love.draw()
   if app then app.draw() end
+  -- Afficher uniquement apres le premier frame dessine
+  if not _ready and love.window and love.window.setVisible then
+    _ready = true
+    love.window.setVisible(true)
+  end
 end
 
 function love.keypressed(key, scancode, isrepeat)

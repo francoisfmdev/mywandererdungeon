@@ -5,4 +5,7 @@ function love.conf(t)
   t.window.title = "The Wanderer Eternal"
   t.window.width = 800
   t.window.height = 600
+  -- Demarrer hors ecran pour eviter le flash avant love.load
+  t.window.x = -10000
+  t.window.y = -10000
 end

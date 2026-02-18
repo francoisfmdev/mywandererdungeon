@@ -51,6 +51,7 @@ function M.createMonster(monsterId, x, y)
     id = next_id(),
     monsterId = monsterId,
     isPlayer = false,
+    isBoss = def.isBoss or false,
     nameKey = def.nameKey or ("entity." .. monsterId),
     hp = hp,
     maxHp = hp,
