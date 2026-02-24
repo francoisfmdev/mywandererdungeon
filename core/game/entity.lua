@@ -4,7 +4,6 @@ local M = {}
 local EntityAdapter = require("core.combat.entity_adapter")
 local EffectManager = require("core.effects.effect_manager")
 local MonsterRegistry = require("core.entities.monster_registry")
-local WeaponRegistry = require("core.weapons.weapon_registry")
 
 local _entity_id = 0
 local function next_id()
@@ -32,21 +31,9 @@ function M.createMonster(monsterId, x, y)
   if not def then return nil end
 
   local hp = def.hp or 10
-  local stats = def.stats or {}
-  local statList = { "strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma" }
-  for _, s in ipairs(statList) do
-    if stats[s] == nil then stats[s] = 10 end
-  end
-
-  local weaponDef = nil
-  if def.weapon then
-    weaponDef = WeaponRegistry.get(def.weapon) or { damageMin = 1, damageMax = 4, damageType = "slashing", statUsed = "strength" }
-  else
-    weaponDef = { damageMin = 1, damageMax = 4, damageType = "slashing", statUsed = "strength" }
-  end
-
   local resistances = def.resistances or {}
 
+  local gx, gy = x or 0, y or 0
   local entity = {
     id = next_id(),
     monsterId = monsterId,
@@ -55,21 +42,19 @@ function M.createMonster(monsterId, x, y)
     nameKey = def.nameKey or ("entity." .. monsterId),
     hp = hp,
     maxHp = hp,
-    mp = 0,
-    maxMp = 0,
-    stats = stats,
     resistances = resistances,
-    weapon = weaponDef,
-    x = x or 0,
-    y = y or 0,
-    gridX = x or 0,
-    gridY = y or 0,
+    x = gx,
+    y = gy,
+    gridX = gx,
+    gridY = gy,
+    spawnX = gx,
+    spawnY = gy,
     _character = nil,
+    aiState = "idle",
   }
 
-  entity.getEffectiveStat = function(_, statName)
-    return entity.stats[statName] or 0
-  end
+  -- Monstres : precision via arme (hitBonus/critBonus), pas de stats
+  entity.getEffectiveStat = function() return 0 end
   entity.getEffectiveAC = function() return 10 end
   entity.getArmorValue = function() return 0 end
   entity.getEquipmentDefenseBonus = function() return 0 end

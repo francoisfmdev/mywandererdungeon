@@ -64,6 +64,10 @@ function M.trigger(trap, entity)
     params = { target = entityName },
   })
 
+  -- Piege multi-activation : visible apres premiere activation (oneShot reste invisible une fois declenche)
+  if not trap.oneShot then
+    trap.revealed = true
+  end
   if trap.oneShot then
     trap.triggered = true
     trap.state = "triggered"

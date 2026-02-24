@@ -2,6 +2,7 @@
 local M = {}
 
 local damage_calculator = require("core.combat.damage_calculator")
+local MonsterRegistry = require("core.entities.monster_registry")
 
 local function getEntityHp(entity)
   if not entity then return 0 end
@@ -22,31 +23,6 @@ local function setEntityHp(entity, value)
   end
 end
 
-local function getEntityMp(entity)
-  if not entity then return 0 end
-  return tonumber(entity.mp) or 0
-end
-
-local function consumeMp(entity, amount)
-  if not entity then return false end
-  local current = getEntityMp(entity)
-  if current < amount then return false end
-  entity.mp = current - amount
-  if entity._character and entity._character.setMP then
-    entity._character:setMP(entity.mp)
-  end
-  return true
-end
-
-local function getEffectiveMpCost(caster, baseCost)
-  if not caster or not baseCost or baseCost <= 0 then return baseCost or 0 end
-  local mult = 1
-  if caster.effectManager and caster.effectManager.getMpCostMultiplier then
-    mult = caster.effectManager:getMpCostMultiplier() or 1
-  end
-  return math.max(1, math.floor(baseCost * mult))
-end
-
 local function ensureDamageType(weapon)
   return (weapon and weapon.damageType) or "slashing"
 end
@@ -55,7 +31,25 @@ local function ensureSpellDamageType(spell)
   return (spell and spell.damageType) or "fire"
 end
 
-function M.resolveAttack(attacker, defender, weapon)
+local function pick_monster_attack(monsterDef, behavior)
+  if not monsterDef or not behavior then return nil end
+  local byBeh = monsterDef.attacksByBehavior
+  if not byBeh or type(byBeh) ~= "table" then return nil end
+  local list = byBeh[behavior]
+  if not list or #list == 0 then return nil end
+  local total = 0
+  for _, a in ipairs(list) do total = total + (tonumber(a.weight) or 1) end
+  if total <= 0 then return list[1] end
+  local r = math.random(1, total)
+  for _, a in ipairs(list) do
+    r = r - (tonumber(a.weight) or 1)
+    if r <= 0 then return a end
+  end
+  return list[1]
+end
+
+--- weapon: pour joueur. options.behavior: pour monstre (attacking, hunting, fleeing)
+function M.resolveAttack(attacker, defender, weapon, options)
   local result = {
     hit = false,
     critical = false,
@@ -64,25 +58,58 @@ function M.resolveAttack(attacker, defender, weapon)
     defenderHp = getEntityHp(defender),
   }
 
-  if not attacker or not defender or not weapon then
-    return result
+  if not attacker or not defender then return result end
+
+  local hitChance
+  local attackData = nil
+  local isMonster = attacker.monsterId and not attacker._character
+
+  if isMonster then
+    local behavior = (options and options.behavior) or "attacking"
+    local monsterDef = MonsterRegistry.get(attacker.monsterId)
+    attackData = pick_monster_attack(monsterDef, behavior)
+    if not attackData then
+      result.defenderHp = getEntityHp(defender)
+      return result
+    end
+    hitChance = tonumber(attackData.hitChance) or 70
+  else
+    if not weapon then return result end
+    hitChance = damage_calculator.computeHitChance(attacker, defender, weapon)
   end
 
-  local hitChance = damage_calculator.computeHitChance(attacker, defender)
   if not damage_calculator.rollHit(hitChance) then
     result.defenderHp = getEntityHp(defender)
     return result
   end
 
   result.hit = true
-  local critChance = damage_calculator.computeCritChance(attacker)
-  result.critical = damage_calculator.rollCrit(critChance)
+  local critChance = 0
+  local rawDamage = 0
+  local damageType = "slashing"
 
-  local rawDamage = damage_calculator.computePhysicalDamage(attacker, defender, weapon)
+  if isMonster and attackData then
+    critChance = 5
+    local synthWeapon = {
+      damageMin = attackData.damageMin or 1,
+      damageMax = attackData.damageMax or 1,
+      damageType = attackData.damageType or "slashing",
+      statUsed = "strength",
+    }
+    rawDamage = damage_calculator.computePhysicalDamage(attacker, defender, synthWeapon)
+    damageType = synthWeapon.damageType
+  else
+    critChance = damage_calculator.computeCritChance(attacker, weapon)
+    local effectiveWeapon = weapon.base or weapon
+    rawDamage = damage_calculator.computePhysicalDamage(attacker, defender, effectiveWeapon)
+    rawDamage = math.max(1, math.floor(rawDamage))
+    damageType = ensureDamageType(weapon)
+  end
+
+  result.critical = damage_calculator.rollCrit(critChance)
   rawDamage = damage_calculator.applyCrit(rawDamage, result.critical)
   rawDamage = math.max(1, math.floor(rawDamage))
 
-  local damageType = ensureDamageType(weapon)
   local resist = damage_calculator.applyResistance(rawDamage, damageType, defender)
 
   if resist.healed > 0 then
@@ -94,6 +121,25 @@ function M.resolveAttack(attacker, defender, weapon)
     result.damage = math.max(1, math.floor(resist.damage))
     setEntityHp(defender, getEntityHp(defender) - result.damage)
     if defender then defender.shakeFrames = 12 end
+  end
+
+  -- Effet on hit : arme (joueur) ou attackData (monstre)
+  if result.hit and defender and defender.effectManager then
+    local effId
+    local effChance = 1
+    if isMonster and attackData then
+      effId = attackData.applyEffect
+      effChance = tonumber(attackData.applyEffectChance) or 1
+    elseif weapon then
+      local wepData = weapon.base or weapon
+      effId = wepData and wepData.applyEffect
+      effChance = tonumber(wepData.applyEffectChance) or 1
+    end
+    if effId and (effChance >= 1 or (effChance > 0 and math.random() < effChance)) then
+      local log_mgr = require("core.game_log.log_manager")
+      local turnNum = log_mgr.get_turn and log_mgr.get_turn() or 0
+      defender.effectManager:addEffect(effId, attacker, turnNum)
+    end
   end
 
   result.defenderHp = getEntityHp(defender)
@@ -118,19 +164,7 @@ function M.resolveSpell(caster, target, spell, options)
     return result
   end
 
-  local skipMp = options and options.skipMpCost
-  if not skipMp then
-    local baseCost = spell.mpCost or 0
-    local mpCost = getEffectiveMpCost(caster, baseCost)
-    if getEntityMp(caster) < mpCost then
-      return result
-    end
-    if not consumeMp(caster, mpCost) then
-      return result
-    end
-  end
-
-  local hitChance = damage_calculator.computeHitChance(caster, target or caster)
+  local hitChance = damage_calculator.computeHitChance(caster, target or caster, spell)
 
   if target and not damage_calculator.rollHit(hitChance) then
     result.defenderHp = getEntityHp(target)
@@ -138,7 +172,7 @@ function M.resolveSpell(caster, target, spell, options)
   end
 
   result.hit = true
-  local critChance = damage_calculator.computeCritChance(caster)
+  local critChance = damage_calculator.computeCritChance(caster, spell)
   result.critical = damage_calculator.rollCrit(critChance)
 
   local isHeal = (spell.damageType or "") == "heal"
@@ -180,6 +214,13 @@ function M.resolveSpell(caster, target, spell, options)
         if target then target.shakeFrames = 12 end
       end
     end
+
+    -- Effet on hit (sort) : applyEffect
+    if result.hit and target and target.effectManager and spell.applyEffect then
+      local log_mgr = require("core.game_log.log_manager")
+      local turnNum = log_mgr.get_turn and log_mgr.get_turn() or 0
+      target.effectManager:addEffect(spell.applyEffect, caster, turnNum)
+    end
   end
 
   result.defenderHp = target and getEntityHp(target) or 0
@@ -193,14 +234,6 @@ function M.resolveSpellArea(caster, spell, centerX, centerY, entityManager, opti
 
   local radius = tonumber(spell.radius) or 0
   if radius <= 0 then return hits end
-
-  local skipMp = options and options.skipMpCost
-  if not skipMp then
-    local baseCost = spell.mpCost or 0
-    local mpCost = getEffectiveMpCost(caster, baseCost)
-    if getEntityMp(caster) < mpCost then return hits end
-    if not consumeMp(caster, mpCost) then return hits end
-  end
 
   local isHeal = (spell.damageType or "") == "heal"
   local damageType = ensureSpellDamageType(spell)
@@ -232,13 +265,19 @@ function M.resolveSpellArea(caster, spell, centerX, centerY, entityManager, opti
         local statMod = damage_calculator.getStatModifier(caster, spell.statMag or "intelligence")
         amount = amount + statMod
         amount = math.max(1, math.floor(amount))
-        amount = damage_calculator.applyCrit(amount, damage_calculator.rollCrit(damage_calculator.computeCritChance(caster)))
+        amount = damage_calculator.applyCrit(amount, damage_calculator.rollCrit(damage_calculator.computeCritChance(caster, spell)))
         local resist = damage_calculator.applyResistance(amount, damageType, entity)
         if resist.damage > 0 then
           local dmg = math.max(1, math.floor(resist.damage))
           setEntityHp(entity, getEntityHp(entity) - dmg)
           if entity then entity.shakeFrames = 12 end
           table.insert(hits, { target = entity, damage = dmg, healed = 0 })
+        end
+        -- Effet on hit (sort zone) : applyEffect
+        if entity and entity.effectManager and spell.applyEffect then
+          local log_mgr = require("core.game_log.log_manager")
+          local turnNum = log_mgr.get_turn and log_mgr.get_turn() or 0
+          entity.effectManager:addEffect(spell.applyEffect, caster, turnNum)
         end
       end
     end

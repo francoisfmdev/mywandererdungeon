@@ -46,6 +46,11 @@ return {
     line_height = 26,
     pad = 32,
   },
+  log = {
+    font_path = nil,      -- "fonts/MyFont.ttf" ou nil pour police par defaut
+    font_size = 16,
+    line_height = 20,
+  },
   colors = {
     bg_dark = { 0.05, 0.04, 0.10, 1 },
     panel = { 0.06, 0.05, 0.14, 0.92 },

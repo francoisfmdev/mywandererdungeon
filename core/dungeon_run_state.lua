@@ -22,6 +22,9 @@ function M.start(dungeonConfig)
   _state = DungeonRun.start(_dungeon_config, character, 1)
   if not _state then return nil end
 
+  local dungeon_renderer = require("core.render.dungeon_renderer")
+  if dungeon_renderer.clear_sprite_cache then dungeon_renderer.clear_sprite_cache() end
+
   local log_manager = require("core.game_log.log_manager")
   log_manager.clear()
   _state.minimapVisible = true
@@ -68,7 +71,6 @@ function M.process_turn(playerAction)
     local player = _state.entityManager:getPlayer()
     if player._character and player._syncEffectEntityToChar then
       player._character:setHP(player.hp)
-      player._character:setMP(player.mp)
     end
   end
   return result

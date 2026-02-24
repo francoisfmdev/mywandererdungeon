@@ -2,7 +2,6 @@
 local M = {}
 
 local router = require("core.router")
-local dungeon_run_state = require("core.dungeon_run_state")
 local menu_renderer = require("core.ui.menu_renderer")
 local menu_controller = require("core.ui.menu_controller")
 local platform = require("platform.love")
@@ -46,11 +45,6 @@ function M.new()
     end
     if action == "scene:push:options" then
       router.dispatch("scene:push:options")
-      return
-    end
-    if action == "pause:quit_to_hub" then
-      dungeon_run_state.clear()
-      router.dispatch("scene:replace:hub_main")
       return
     end
     if action == "quit:" then

@@ -14,8 +14,6 @@ function M.fromCharacter(character)
     stats = stats,
     hp = character:getHP(),
     maxHp = character:getMaxHP(),
-    mp = character:getMP(),
-    maxMp = character:getMaxMP(),
     ac = 10,
     resistances = {},
     _character = character,
@@ -61,7 +59,6 @@ function M.syncToCharacter(entity)
   if not entity or not entity._character then return end
   local c = entity._character
   if c.setHP then c:setHP(entity.hp) end
-  if c.setMP then c:setMP(entity.mp) end
 end
 
 return M

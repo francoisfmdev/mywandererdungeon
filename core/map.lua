@@ -37,6 +37,14 @@ function M.new(width, height)
     end
   end
 
+  --- Definit type et sprite d'une case (pour decors particuliers).
+  function self:setTileData(x, y, data)
+    if x < 1 or x > self.width or y < 1 or y > self.height then return end
+    local t = self.grid[x][y]
+    if data.type then t.type = data.type end
+    if data.sprite ~= nil then t.sprite = data.sprite end
+  end
+
   function self:addEntity(x, y, id)
     if x >= 1 and x <= self.width and y >= 1 and y <= self.height then
       table.insert(self.grid[x][y].entities, id)

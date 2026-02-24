@@ -1,4 +1,4 @@
--- data/weapons.lua - Armes, damageMin/Max, damageType, range
+-- data/weapons.lua - Armes : damageMin/Max, damageType, range, hitBonus (precision), critBonus
 return {
   sword = {
     statUsed = "strength",
@@ -6,6 +6,8 @@ return {
     damageMax = 8,
     damageType = "slashing",
     range = 1,
+    hitBonus = 0,
+    critBonus = 0,
   },
   dagger = {
     statUsed = "dexterity",
@@ -13,6 +15,8 @@ return {
     damageMax = 4,
     damageType = "piercing",
     range = 1,
+    hitBonus = 3,
+    critBonus = 2,
   },
   mace = {
     statUsed = "strength",
@@ -20,6 +24,8 @@ return {
     damageMax = 6,
     damageType = "blunt",
     range = 1,
+    hitBonus = 0,
+    critBonus = 0,
   },
   -- Armes de jet : consomment 1 unite par tir
   throwing_knife = {
@@ -29,6 +35,8 @@ return {
     damageType = "piercing",
     range = 5,
     ammoType = "throwing",
+    hitBonus = 2,
+    critBonus = 1,
   },
   javelin = {
     statUsed = "strength",
@@ -37,6 +45,8 @@ return {
     damageType = "piercing",
     range = 6,
     ammoType = "throwing",
+    hitBonus = 0,
+    critBonus = 0,
   },
   -- Arc : necessite fleches
   bow = {
@@ -47,6 +57,8 @@ return {
     range = 5,
     ammoType = "arrow",
     ammoId = "arrow",
+    hitBonus = 2,
+    critBonus = 1,
   },
   -- Arbalete : necessite carreaux
   crossbow = {
@@ -57,6 +69,8 @@ return {
     range = 6,
     ammoType = "bolt",
     ammoId = "bolt",
+    hitBonus = 1,
+    critBonus = 0,
   },
   -- Arme a feu : necessite munitions
   gun = {
@@ -67,5 +81,7 @@ return {
     range = 5,
     ammoType = "bullet",
     ammoId = "bullet",
+    hitBonus = 0,
+    critBonus = 0,
   },
 }

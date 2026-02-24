@@ -19,65 +19,13 @@ local function weighted_random(items)
 end
 
 local ConsumableRegistry = require("core.consumables.consumable_registry")
-local AffixRegistry = require("core.affixes.affix_registry")
 
-local AFFIX_CHANCE_1 = 0.18
-local AFFIX_CHANCE_2 = 0.05
-local AFFIX_CHANCE_3 = 0.015
-local AFFIX_CHANCE_MONSTER_1 = 0.08
-local AFFIX_CHANCE_MONSTER_2 = 0.02
-local AFFIX_CHANCE_MONSTER_3 = 0.005
-
-local function get_equipment_slot(itemId)
-  local fs = require("core.fs")
-  local path = "data/items/base_equipment.lua"
-  if not fs.exists(path) then return "weapon_main" end
-  local ok, chunk = pcall(fs.read, path)
-  if not ok or not chunk then return "weapon_main" end
-  local fn, err = loadstring(chunk)
-  if not fn then return "weapon_main" end
-  local env = {} setmetatable(env, { __index = _G }) setfenv(fn, env)
-  local ok2, data = pcall(fn)
-  if not ok2 or not data then return "weapon_main" end
-  local def = data[itemId]
-  if def then
-    if def.slot then return def.slot end
-    if def.allowedSlots and #def.allowedSlots > 0 then return def.allowedSlots[1] end
-  end
-  return "weapon_main"
-end
-
-local CURSED_CHANCE = 0.06
-
-local function create_item_from_id(itemId, itemType, dungeonConfig, fromMonster)
+local function create_item_from_id(itemId, itemType, dungeonConfig)
   if itemType == "equipment" then
-    local slot = get_equipment_slot(itemId)
-    local affixes = {}
-    local cursed = math.random() < CURSED_CHANCE
-    local ch1 = fromMonster and AFFIX_CHANCE_MONSTER_1 or AFFIX_CHANCE_1
-    local ch2 = fromMonster and AFFIX_CHANCE_MONSTER_2 or AFFIX_CHANCE_2
-    local ch3 = fromMonster and AFFIX_CHANCE_MONSTER_3 or AFFIX_CHANCE_3
-    if cursed then
-      local ca = AffixRegistry.rollCursedAffix(slot)
-      if ca then table.insert(affixes, ca) end
-    else
-      local affixCount = 0
-      if math.random() < ch1 then affixCount = 1 end
-      if affixCount == 1 and math.random() < ch2 / ch1 then affixCount = 2 end
-      if affixCount == 2 and math.random() < ch3 / ch2 then affixCount = 3 end
-      if affixCount > 0 then
-        local rolled = AffixRegistry.rollAffixesForSlot(slot, affixCount)
-        for _, a in ipairs(rolled) do table.insert(affixes, a) end
-      end
-    end
-    local lootCfg = dungeonConfig and dungeonConfig.loot or {}
-    local levelMin = tonumber(lootCfg.itemLevelMin) or 1
-    local levelMax = tonumber(lootCfg.itemLevelMax) or 3
-    local itemLevel = math.max(1, math.min(levelMax, math.random(levelMin, levelMax)))
-    local item = ItemInstance.create(itemId, affixes, itemLevel)
+    local item = ItemInstance.create(itemId, {}, 1)
     if item then
-      item.identified = false
-      item.cursed = cursed
+      item.identified = true
+      item.cursed = false
     end
     return item
   end
@@ -95,11 +43,11 @@ local function create_item_from_id(itemId, itemType, dungeonConfig, fromMonster)
   return { id = itemId }
 end
 
---- Cree un drop (equipment avec affixes+level, consumable, ou autre). Utilise par death_handler.
+--- Cree un drop (equipment, consumable, or). Objets crees a la main (pas d'affixes).
 function M.createDropItem(itemId, dungeonConfig)
   local ConsumableReg = require("core.consumables.consumable_registry")
   if ConsumableReg.get(itemId) then
-    return create_item_from_id(itemId, "consumable", dungeonConfig, false)
+    return create_item_from_id(itemId, "consumable", dungeonConfig)
   end
   local fs = require("core.fs")
   local path = "data/items/base_equipment.lua"
@@ -111,7 +59,7 @@ function M.createDropItem(itemId, dungeonConfig)
         local env = {} setmetatable(env, { __index = _G }) setfenv(fn, env)
         local ok2, data = pcall(fn)
         if ok2 and data and data[itemId] then
-          return create_item_from_id(itemId, "equipment", dungeonConfig, true)
+          return create_item_from_id(itemId, "equipment", dungeonConfig)
         end
       end
     end
@@ -125,6 +73,7 @@ function M.generate(map, dungeonConfig, depth, entrance, exit)
 
   local lootCfg = dungeonConfig.loot or {}
   local weaponsCfg = lootCfg.weapons or {}
+  local armorCfg = lootCfg.armor or {}
   local consumablesCfg = lootCfg.consumables or {}
   local goldCfg = lootCfg.gold or {}
 
@@ -149,7 +98,7 @@ function M.generate(map, dungeonConfig, depth, entrance, exit)
     floorPositions[i], floorPositions[j] = floorPositions[j], floorPositions[i]
   end
 
-  local density = tonumber(weaponsCfg.density) or 0.02
+  local density = tonumber(weaponsCfg.density) or 0.004
   local weaponCount = math.floor(#floorPositions * density)
   local types = weaponsCfg.types or {}
   if #types > 0 and weaponCount > 0 then
@@ -157,7 +106,7 @@ function M.generate(map, dungeonConfig, depth, entrance, exit)
       local pos = floorPositions[math.random(1, #floorPositions)]
       local pick = weighted_random(types)
       if pick and pos then
-        local item = create_item_from_id(pick.id or pick, "equipment", dungeonConfig, false)
+        local item = create_item_from_id(pick.id or pick, "equipment", dungeonConfig)
         if item then
           map:addGroundLoot(pos[1], pos[2], 0, { item })
         end
@@ -165,7 +114,26 @@ function M.generate(map, dungeonConfig, depth, entrance, exit)
     end
   end
 
-  density = tonumber(consumablesCfg.density) or 0.03
+  local armorDensity = tonumber(armorCfg.density) or 0.002
+  local armorCount = math.floor(#floorPositions * armorDensity)
+  local armorTypes = armorCfg.types or {}
+  if #armorTypes > 0 and armorCount > 0 then
+    for i = 1, math.min(armorCount, #floorPositions) do
+      local pos = floorPositions[math.random(1, #floorPositions)]
+      local pick = weighted_random(armorTypes)
+      if pick and pos then
+        local _, items = map:getGroundLoot(pos[1], pos[2])
+        if #(items or {}) < 2 then
+          local item = create_item_from_id(pick.id or pick, "equipment", dungeonConfig)
+          if item then
+            map:addGroundLoot(pos[1], pos[2], 0, { item })
+          end
+        end
+      end
+    end
+  end
+
+  density = tonumber(consumablesCfg.density) or 0.006
   local consumableCount = math.floor(#floorPositions * density)
   types = consumablesCfg.types or {}
   if #types > 0 and consumableCount > 0 then
@@ -176,7 +144,7 @@ function M.generate(map, dungeonConfig, depth, entrance, exit)
         local tile = map:getTile(pos[1], pos[2])
         local g, items = map:getGroundLoot(pos[1], pos[2])
         if #(items or {}) < 2 then
-          local item = create_item_from_id(pick.id or pick, "consumable", dungeonConfig, false)
+          local item = create_item_from_id(pick.id or pick, "consumable", dungeonConfig)
           if item then
             map:addGroundLoot(pos[1], pos[2], 0, { item })
           end
@@ -185,9 +153,9 @@ function M.generate(map, dungeonConfig, depth, entrance, exit)
     end
   end
 
-  density = tonumber(goldCfg.density) or 0.04
-  local amountMin = tonumber(goldCfg.amountMin) or 2
-  local amountMax = tonumber(goldCfg.amountMax) or 12
+  density = tonumber(goldCfg.density) or 0.015
+  local amountMin = tonumber(goldCfg.amountMin) or 1
+  local amountMax = tonumber(goldCfg.amountMax) or 8
   local goldCount = math.floor(#floorPositions * density)
   for i = 1, goldCount do
     local pos = floorPositions[math.random(1, #floorPositions)]
@@ -195,6 +163,27 @@ function M.generate(map, dungeonConfig, depth, entrance, exit)
       local amt = math.random(amountMin, amountMax)
       if amt > 0 then
         map:addGroundLoot(pos[1], pos[2], amt, nil)
+      end
+    end
+  end
+
+  -- Objets globaux (cartes type graines PMD) : rares, sur n'importe quel etage/donjon
+  local globalCfg = require("data.loot_global")
+  local globalDensity = tonumber(globalCfg.density) or 0.002
+  local globalTypes = globalCfg.types or {}
+  local globalCount = math.floor(#floorPositions * globalDensity)
+  if #globalTypes > 0 and globalCount > 0 then
+    for i = 1, math.min(globalCount, #floorPositions) do
+      local pos = floorPositions[math.random(1, #floorPositions)]
+      local pick = weighted_random(globalTypes)
+      if pick and pos then
+        local _, items = map:getGroundLoot(pos[1], pos[2])
+        if #(items or {}) < 2 then
+          local item = create_item_from_id(pick.id or pick, "consumable", dungeonConfig)
+          if item then
+            map:addGroundLoot(pos[1], pos[2], 0, { item })
+          end
+        end
       end
     end
   end

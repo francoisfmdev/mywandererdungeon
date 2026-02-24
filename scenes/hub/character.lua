@@ -62,8 +62,6 @@ function M.new()
     y = y + line_h
     draw_line(pad, y, i18n.t("hub.character.hp"), _char:getHP() .. "/" .. _char:getMaxHP())
     y = y + line_h
-    draw_line(pad, y, i18n.t("hub.character.mp"), _char:getMP() .. "/" .. _char:getMaxMP())
-    y = y + line_h
     draw_line(pad, y, i18n.t("hub.character.gold"), tostring(require("core.player_data").get_gold()))
     y = y + line_h + 4
 

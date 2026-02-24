@@ -22,6 +22,24 @@ function M.first_step_toward(map, fromX, fromY, toX, toY, isWalkable)
   return next_pos.x - fromX, next_pos.y - fromY
 end
 
+--- Retourne dx, dy du premier pas pour fuir (s'eloigner de fromX, fromY).
+--- isWalkable(x, y) doit retourner true si la case est franchissable.
+function M.first_step_away(map, fromX, fromY, threatX, threatY, isWalkable)
+  isWalkable = isWalkable or function(x, y) return map:inBounds(x, y) and map:isWalkable(x, y) end
+  local bestDx, bestDy, bestDist = nil, nil, -1
+  for _, d in octo.each_dir() do
+    local nx, ny = fromX + d.dx, fromY + d.dy
+    if isWalkable(nx, ny) then
+      local dist = math.max(math.abs(nx - threatX), math.abs(ny - threatY))
+      if dist > bestDist then
+        bestDist = dist
+        bestDx, bestDy = d.dx, d.dy
+      end
+    end
+  end
+  return bestDx, bestDy
+end
+
 function M.each_dir()
   return octo.each_dir()
 end

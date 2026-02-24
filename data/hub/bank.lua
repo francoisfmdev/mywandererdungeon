@@ -1,6 +1,6 @@
--- data/hub/bank.lua
 return {
   background = "bank_room",
+  hint_key = "hub.menu_hint",
   buttons = {
     { label = "hub.bank.deposit_gold", action = "hub.bank:deposit_gold" },
     { label = "hub.bank.withdraw_gold", action = "hub.bank:withdraw_gold" },

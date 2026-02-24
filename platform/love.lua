@@ -63,20 +63,64 @@ function M.gfx_get_font()
   return love.graphics.getFont()
 end
 
-function M.gfx_load_image(path)
-  local ok, img = pcall(love.graphics.newImage, path)
-  if ok and img then return img end
-  return nil
+--- Charge une police : path nil ou absent = police par defaut a la taille size.
+--- Retourne la police ou nil en cas d'erreur.
+function M.gfx_load_font(path, size)
+  size = tonumber(size) or 12
+  if not path or path == "" then
+    local ok, font = pcall(love.graphics.newFont, size)
+    return ok and font or nil
+  end
+  local fs = love.filesystem
+  if not fs.getInfo or not fs.getInfo(path) then return nil end
+  local ok, font = pcall(love.graphics.newFont, path, size)
+  return ok and font or nil
 end
 
-function M.gfx_draw_image(img, x, y, w, h)
+--- Definit la police courante. Retourne la police precedente.
+function M.gfx_set_font(font)
+  local prev = love.graphics.getFont()
+  if font then love.graphics.setFont(font) end
+  return prev
+end
+
+--- Charge une image. Noir pur (0,0,0) = transparent pour permettre teintes ambiance.
+function M.gfx_load_image(path)
+  local ok, data = pcall(love.image.newImageData, path)
+  if not ok or not data then return nil end
+  -- Noir (0,0,0) -> transparent pour teinter les donjons
+  data:mapPixel(function(x, y, r, g, b, a)
+    if r <= 1/255 and g <= 1/255 and b <= 1/255 then
+      return r, g, b, 0
+    end
+    return r, g, b, a
+  end)
+  local img = love.graphics.newImage(data)
+  if img then
+    img:setFilter("nearest", "nearest")
+  end
+  return img
+end
+
+function M.gfx_draw_image(img, x, y, w, h, sx, sy, sw, sh)
   if not img then return end
   love.graphics.setColor(1, 1, 1, 1)
-  if w and h then
+  if sx and sy and sw and sh then
+    local iw, ih = img:getDimensions()
+    local quad = love.graphics.newQuad(sx, sy, sw, sh, iw, ih)
+    local scaleX = w and (w / sw) or 1
+    local scaleY = h and (h / sh) or 1
+    love.graphics.draw(img, quad, x, y, 0, scaleX, scaleY)
+  elseif w and h then
     love.graphics.draw(img, x, y, 0, w / img:getWidth(), h / img:getHeight())
   else
     love.graphics.draw(img, x, y)
   end
+end
+
+--- Retourne le temps en secondes (pour animation idle).
+function M.gfx_get_time()
+  return love.timer and love.timer.getTime and love.timer.getTime() or 0
 end
 
 function M.input_register(on_key, on_key_release)

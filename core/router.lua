@@ -32,29 +32,12 @@ function M.init(sm, plat)
         px, py, range, state.map, state.entityManager, player
       )
       input_state.setSelectedDirection(dx, dy)
-    elseif sub == "cast" then
-      local spell_registry = require("core.spells.spell_registry")
-      local spellId = "fireball"
-      local spell = spell_registry.get(spellId)
-      if spell and (spell.targetType or "projectile") == "buff" then
-        local player = state.entityManager:getPlayer()
-        require("core.dungeon_run_state").process_turn({ type = "cast", spellId = spellId, targetId = player and player.id })
-      else
-        local input_state = require("core.input.input_state")
-        local target_selector = require("core.targeting.target_selector")
-        input_state.setMode("direction_target")
-        input_state.setPendingAction("cast")
-        input_state.setPendingSpellId(spellId)
-        local player = state.entityManager:getPlayer()
-        local range = (spell and spell.range) or 8
-        local px, py = player and (player.x or player.gridX), player and (player.y or player.gridY)
-        local _, dx, dy = target_selector.findNearestEnemyInRange(
-          px, py, range, state.map, state.entityManager, player
-        )
-        input_state.setSelectedDirection(dx, dy)
-      end
     elseif sub == "inventory" then
       scene_manager.push("hub.inventory")
+    elseif sub == "consumables" then
+      scene_manager.push("hub.inventory_consumables")
+    elseif sub == "equipment" then
+      scene_manager.push("hub.equipment")
     elseif sub == "wait" then
       require("core.dungeon_run_state").process_turn({ type = "wait" })
     elseif sub == "observer" then

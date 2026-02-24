@@ -83,8 +83,9 @@ function M.create(data_path)
         if platform.mouse_consume_click(1) then
           local action = buttons[i].action
           if action then router.dispatch(action) end
+          return
         end
-        return
+        break
       end
     end
     if platform.mouse_consume_click(1) then return end

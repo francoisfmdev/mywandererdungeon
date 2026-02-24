@@ -70,8 +70,9 @@ function M.new()
         if platform.mouse_consume_click(1) then
           local item = _items[i]
           if item and item.action then router.dispatch(item.action) end
+          return
         end
-        return
+        break
       end
     end
     if platform.mouse_consume_click(1) then return end

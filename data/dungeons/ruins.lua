@@ -1,129 +1,146 @@
--- data/dungeons/ruins.lua - Donjon 1 : Les Ruines
+-- data/dungeons/ruins.lua - Config donjon Ruines (3 etages, boss)
+-- Sprites: floor, wall, exit uniquement (pas d'autotiling)
 return {
   id = "ruins",
-
-  -- Nombre d'etages a parcourir avant la condition de victoire
+  nameKey = "hub.world.ruins",
   totalFloors = 3,
-  -- Condition de victoire au dernier etage : "boss" (battre le boss) ou "object" (ramasser l'objet)
   winCondition = "boss",
-  -- Si winCondition == "boss" : id du monstre boss (doit exister dans monsters.lua)
   bossId = "skeleton_lord",
-  -- Si winCondition == "object" : id de l'objet obligatoire (doit exister dans consumables.lua)
-  winObjectId = "ruins_relic",
 
   map = {
-    width = 80,
-    height = 80,
+    width = 56,
+    height = 56,
   },
 
-  -- Sprites associes a ce donjon (assets relatifs au projet)
-  sprites = {
-    floor = "assets/dungeons/ruins/floor.png",
-    wall = "assets/dungeons/ruins/wall.png",
-    exit = "assets/dungeons/ruins/exit.png",  -- escalier/portail, fallback couleur si absent
-  },
-  entitySprites = {
-    player = "assets/dungeons/ruins/entities/player.png",
-    skeleton = "assets/dungeons/ruins/entities/skeleton.png",
-    skeleton_lord = "assets/dungeons/ruins/entities/skeleton.png",
-    rat = "assets/dungeons/ruins/entities/rat.png",
-    cultist = "assets/dungeons/ruins/entities/cultist.png",
-  },
+  -- Pieces predessinees (tableaux F/W) + couloirs proceduraux (style Binding of Isaac)
+  roomTemplatesPath = "data.dungeons.rooms.ruins_rooms",
+  roomTemplates = nil, -- charge depuis roomTemplatesPath si nil
 
   generation = {
-    monsterDensityDivisor = 8,
-    maxMonstersPerRoom = 3,
-    spawnChanceEvery5Turns = 0.08,
-    spawnMinDistanceFromPlayer = 12,
-    minRooms = 14,
-    maxRooms = 22,
+    gridCols = 4,
+    gridRows = 4,
+    numRooms = 8,
     minRoomSize = 5,
-    maxRoomSize = 12,
+    maxRoomSize = 10,
+    minRooms = 4,
+    maxRooms = 16,
     smallRoomMax = 6,
     mediumRoomMax = 10,
-    smallRoomWeight = 1,
-    mediumRoomWeight = 3,
-    irregularityChance = 0.12,
-    classicRoomRatio = 0.6,
-    maxEventsPerFloor = 8,
-    branchCount = 2,
-    branchMaxGap = 3,
-    corridorBendThreshold = 6,
-    deadEndCount = 3,
-    deadEndChance = 0.12,
-    deadEndMaxLen = 2,
-    pillarChance = 0.4,
-    pillarMaxPerRoom = 2,
-    alcoveChance = 0.35,
-    alcoveMaxDepth = 2,
+    largeRoomMax = 14,
+    smallRoomWeight = 3,
+    mediumRoomWeight = 2,
+    largeRoomWeight = 0.5,
+    corridorBendThreshold = 1,
+    corridorBendChance = 0.3,
+    corridorMode = "mst",
+    branchCount = 0,
+    branchChance = 0,
+    branchMaxGap = 0,
+    deadEndChance = 0,
+    deadEndMaxLen = 0,
+    pillarChance = 0,
+    pillarMaxPerRoom = 0,
+    alcoveChance = 0,
+    alcoveMaxPerRoom = 0,
+    alcoveMaxDepth = 0,
+    irregularityChance = 0,
+    classicRoomRatio = 1.0,
+    monsterDensityDivisor = 8,
+    maxMonstersPerRoom = 3,
+    hpRegenFactor = 1.0,
+    hpRegenInterval = 3,
+  },
+
+  -- Chars etendus pour rooms : TL/TR/BL/BR = coins, P = pilier, D/R/K/J = decors (lettres fixes, sprites par donjon)
+  roomTileChars = {
+    TL = { type = "wall", sprite = "assets/dungeons/ruins/wall_corner_tl.png" },
+    TR = { type = "wall", sprite = "assets/dungeons/ruins/wall_corner_tr.png" },
+    BL = { type = "wall", sprite = "assets/dungeons/ruins/wall_corner_bl.png" },
+    BR = { type = "wall", sprite = "assets/dungeons/ruins/wall_corner_br.png" },
+    P = { type = "wall", sprite = "assets/dungeons/ruins/wall_pillar.png" },
+    D = { type = "floor", sprite = "assets/dungeons/ruins/decors_d.png" },
+    R = { type = "floor", sprite = "assets/dungeons/ruins/decors_r.png" },
+    K = { type = "floor", sprite = "assets/dungeons/ruins/decors_k.png" },
+    J = { type = "floor", sprite = "assets/dungeons/ruins/decors_j.png" },
+  },
+
+  -- Couleur boite journal (hex) : fond derriere les logs pour lisibilite. Ex: "#1a1a2e", alpha optionnel "#1a1a2e88"
+  logBoxColor = "#0a0a1288",
+
+  sprites = {
+    floor = {
+      base = "assets/dungeons/ruins/floor.png",
+      variant = "assets/dungeons/ruins/floor_variant.png",
+    },
+    wall = {
+      top = "assets/dungeons/ruins/wall_top.png",
+      bottom = "assets/dungeons/ruins/wall_top.png",
+      left = "assets/dungeons/ruins/wall_left.png",
+      right = "assets/dungeons/ruins/wall_left.png",
+      topVariant = "assets/dungeons/ruins/wall_top_varitant.png",
+      leftVariant = "assets/dungeons/ruins/wall_left_variant.png",
+      cornerTL = "assets/dungeons/ruins/wall_corner_tl.png",
+      cornerTR = "assets/dungeons/ruins/wall_corner_tr.png",
+      cornerBL = "assets/dungeons/ruins/wall_corner_bl.png",
+      cornerBR = "assets/dungeons/ruins/wall_corner_br.png",
+      pillar = "assets/dungeons/ruins/wall_pillar.png",  -- intersections (*), a la place des angles
+      default = "assets/dungeons/ruins/wall_top.png",
+    },
+    exit = "assets/dungeons/ruins/exit.png",
+    void = "assets/dungeons/ruins/void.png",
+  },
+
+  -- entitySprites : paths = plusieurs fichiers | path + frames = sprite sheet decoupe
+  -- entitySpriteScale : 1.0 = sprites pleine taille, 0.9 = reduits pour marge
+  entitySpriteScale = 1.0,
+  -- Tous les monstres : format paths (image1.png, image1_2.png) comme le rat
+  entitySprites = {
+    player = { paths = { "assets/generals/hero.png", "assets/generals/hero_2.png" } },
+    rat = { paths = { "assets/entities/rat.png", "assets/entities/rat_2.png" } },
+    bat = { paths = { "assets/entities/bat.png", "assets/entities/bat_2.png" } },
+    gobelin = { paths = { "assets/entities/gobelin.png", "assets/entities/gobelin_2.png" } },
+    skeleton = { paths = { "assets/entities/skeleton.png", "assets/entities/skeleton_2.png" } },
+    cultist = { paths = { "assets/entities/orc.png", "assets/entities/orc_2.png" } },
+    skeleton_lord = { paths = { "assets/entities/skeleton_lord.png", "assets/entities/skeleton_lord_2.png" } },
   },
 
   monsters = {
-    { id = "skeleton", weight = 10 },
-    { id = "rat", weight = 20 },
-    { id = "cultist", weight = 5 },
+    { id = "rat", weight = 4 },
+    { id = "bat", weight = 4 },
+    { id = "gobelin", weight = 1 },
+    { id = "skeleton", weight = 2 },
+    { id = "cultist", weight = 1 },
   },
 
-  events = {
-    { id = "trap_spike", weight = 10 },
-    { id = "treasure_room", weight = 5 },
-  },
-
+  -- Premier donjon : pieges faibles uniquement (pas de poison) pour apprendre les mecaniques
   traps = {
+    types = { { id = "weak_spike", weight = 1 } },
     density = 0.02,
-    types = {
-      { id = "spike_trap", weight = 10 },
-      { id = "poison_trap", weight = 5 },
-      { id = "paralysis_trap", weight = 3 },
-      { id = "distraction_trap", weight = 2 },
-      { id = "silence_trap", weight = 2 },
-      { id = "exhaustion_trap", weight = 2 },
-    },
   },
 
   loot = {
-    itemLevelMin = 1,
-    itemLevelMax = 3,
     weapons = {
-      density = 0.007,
       types = {
-        { id = "iron_sword", weight = 3 },
-        { id = "dagger", weight = 8 },
-        { id = "iron_spear", weight = 2 },
-        { id = "mace", weight = 4 },
-        { id = "short_bow", weight = 2 },
-        { id = "crossbow", weight = 1 },
-        { id = "pistol", weight = 1 },
-        { id = "throwing_knife", weight = 4 },
-        { id = "javelin", weight = 2 },
-        { id = "wooden_shield", weight = 5 },
-        { id = "leather_armor", weight = 4 },
+        { id = "dagger", weight = 2 },
+        { id = "iron_mace", weight = 1 },
       },
+      density = 0.003,
+    },
+    armor = {
+      types = {
+        { id = "leather_armor", weight = 2 },
+        { id = "chainmail", weight = 1 },
+      },
+      density = 0.002,
     },
     consumables = {
-      density = 0.012,
-      types = {
-        { id = "potion_minor_hp", weight = 10 },
-        { id = "potion_hp", weight = 5 },
-        { id = "potion_mp", weight = 5 },
-        { id = "arrow", weight = 6 },
-        { id = "bolt", weight = 3 },
-        { id = "bullet", weight = 2 },
-        { id = "wand_fireball", weight = 2 },
-        { id = "wand_heal", weight = 2 },
-        { id = "card_teleport", weight = 1 },
-        { id = "card_purify", weight = 1 },
-        { id = "scroll_identify", weight = 2 },
-        { id = "antidote", weight = 3 },
-        { id = "coffee", weight = 2 },
-        { id = "vitamine", weight = 2 },
-        { id = "pastille_voix", weight = 2 },
-      },
+      types = {},
+      density = 0.004,
     },
     gold = {
-      density = 0.03,
-      amountMin = 2,
-      amountMax = 10,
+      density = 0.012,
+      amountMin = 1,
+      amountMax = 6,
     },
   },
 }

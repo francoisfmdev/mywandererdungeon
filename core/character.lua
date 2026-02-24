@@ -73,7 +73,6 @@ function M.new()
   self._stat_points = 0
   self._stats = init_stats(cfg)
   self._hp = 0
-  self._mp = 0
 
   local EquipmentManager = require("core.equipment.equipment_manager")
   self.equipmentManager = EquipmentManager.new(self)
@@ -84,12 +83,9 @@ function M.new()
   local function syncEffectEntityFromChar()
     effectEntity.hp = self:getHP()
     effectEntity.maxHp = self:getMaxHP()
-    effectEntity.mp = self:getMP()
-    effectEntity.maxMp = self:getMaxMP()
   end
   local function syncEffectEntityToChar()
     if effectEntity.hp ~= nil then self:setHP(effectEntity.hp) end
-    if effectEntity.mp ~= nil then self:setMP(effectEntity.mp) end
   end
   self.effectManager = require("core.effects.effect_manager").new(effectEntity)
   self._syncEffectEntityFromChar = syncEffectEntityFromChar
@@ -194,23 +190,9 @@ function M.new()
 
   function self:getMaxHP()
     local cfg = self._config
-    local con = self:getEffectiveStat("constitution")
-    local base = (cfg.baseHP or 0)
-      + con * (cfg.hpPerCon or 0)
-      + self._level * (cfg.hpPerLevel or 0)
+    local base = (cfg.baseHP or 0) + self._level * (cfg.hpPerLevel or 0)
     local bonus = getEquipmentBonuses()
     return base + (bonus.bonusMaxHp or 0)
-  end
-
-  function self:getMaxMP()
-    local cfg = self._config
-    local int = self:getEffectiveStat("intelligence")
-    local div = cfg.mpPerLevelDiv or 3
-    local base = (cfg.baseMP or 0)
-      + int * (cfg.mpPerInt or 0)
-      + math.floor((self._level - 1) / div)
-    local bonus = getEquipmentBonuses()
-    return base + (bonus.bonusMaxMp or 0)
   end
 
   function self:getXP()
@@ -233,14 +215,6 @@ function M.new()
     self._hp = math.max(0, math.min(v, self:getMaxHP()))
   end
 
-  function self:getMP()
-    return self._mp
-  end
-
-  function self:setMP(v)
-    self._mp = math.max(0, math.min(v, self:getMaxMP()))
-  end
-
   function self:xpToNextLevel()
     if self._level >= max_level then return nil end
     local xt = load_xp_table()
@@ -252,7 +226,6 @@ function M.new()
 
   function self:reset()
     self._hp = self:getMaxHP()
-    self._mp = self:getMaxMP()
   end
 
   function self:resetToLevel1()
@@ -284,7 +257,6 @@ function M.toSaveData(char)
       return t
     end)(),
     hp = char:getHP(),
-    mp = char:getMP(),
     equipment = char.equipmentManager and char.equipmentManager:toSaveData(),
   }
 end
@@ -304,7 +276,6 @@ function M.fromSaveData(data)
   end
   char:reset()
   if data.hp then char:setHP(data.hp) end
-  if data.mp then char:setMP(data.mp) end
   if char._syncEffectEntityFromChar then char:_syncEffectEntityFromChar() end
   return char
 end

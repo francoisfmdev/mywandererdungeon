@@ -22,19 +22,31 @@ function M.add_gold(amount)
   end
 end
 
+local function is_stackable_consumable(def)
+  if not def then return false end
+  local t = def.type or ""
+  return t == "ammo" or t == "potion" or t == "scroll" or t == "card"
+end
+
 function M.add_item(item)
   if not item then return end
   local ConsumableRegistry = require("core.consumables.consumable_registry")
-  local def = ConsumableRegistry.get(item.id or (item.base and item.base.id))
-  if def and def.type == "ammo" then
+  local itemId = item.id or (item.base and item.base.id)
+  local def = ConsumableRegistry.get(itemId)
+  if def and is_stackable_consumable(def) then
     for _, invItem in ipairs(_data.inventory) do
       local id = invItem.id or (invItem.base and invItem.base.id)
-      if id == (item.id or item.base.id) then
+      if id == itemId and ConsumableRegistry.isConsumable(invItem) then
         invItem.count = (invItem.count or 1) + (item.count or 1)
         return
       end
     end
   end
+  local consumableSlots = 0
+  for _, invItem in ipairs(_data.inventory) do
+    if ConsumableRegistry.isConsumable(invItem) then consumableSlots = consumableSlots + 1 end
+  end
+  if ConsumableRegistry.isConsumable(item) and consumableSlots >= 20 then return end
   table.insert(_data.inventory, item)
 end
 
@@ -92,6 +104,27 @@ end
 
 function M.get_inventory()
   return _data.inventory
+end
+
+function M.get_consumables()
+  local ConsumableRegistry = require("core.consumables.consumable_registry")
+  local out = {}
+  for idx, item in ipairs(_data.inventory) do
+    if ConsumableRegistry.isConsumable(item) then
+      table.insert(out, { item = item, invIndex = idx })
+    end
+  end
+  return out
+end
+
+function M.get_equipment_in_bag()
+  local out = {}
+  for idx, item in ipairs(_data.inventory) do
+    if item.base and item.base.slot then
+      table.insert(out, { item = item, invIndex = idx })
+    end
+  end
+  return out
 end
 
 function M.clear_inventory()

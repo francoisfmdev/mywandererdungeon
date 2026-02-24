@@ -1,22 +1,30 @@
--- data/spells.lua - Sorts, damageType elementaire : fire|ice|lightning|poison|light|dark
--- targetType: "projectile" (direction, zone), "melee" (corps a corps), "buff" (cible = soi)
+-- data/spells.lua - Sorts (baguettes/consommables), precision via hitBonus/critBonus
 return {
   fireball = {
     statMag = "intelligence",
     damageMin = 2,
     damageMax = 12,
     damageType = "fire",
-    mpCost = 5,
     radius = 1,
     range = 8,
     targetType = "projectile",
+    hitBonus = 2,
+    critBonus = 1,
   },
   heal = {
     statMag = "wisdom",
     damageMin = 2,
     damageMax = 12,
     damageType = "heal",
-    mpCost = 3,
     targetType = "buff",
+  },
+  frighten = {
+    statMag = "intelligence",
+    damageMin = 0,
+    damageMax = 2,
+    damageType = "dark",
+    range = 6,
+    targetType = "projectile",
+    applyEffect = "fear",
   },
 }

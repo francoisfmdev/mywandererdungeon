@@ -20,7 +20,7 @@ function M.computeBonuses(equipment)
     attackBonus = 0,
     defenseBonus = 0,
     bonusMaxHp = 0,
-    bonusMaxMp = 0,
+    hitBonus = 0,
   }
 
   if not equipment then return result end
@@ -38,7 +38,7 @@ function M.computeBonuses(equipment)
       if type(bonuses.attackBonus) == "number" then result.attackBonus = result.attackBonus + bonuses.attackBonus end
       if type(bonuses.defenseBonus) == "number" then result.defenseBonus = result.defenseBonus + bonuses.defenseBonus end
       if type(bonuses.bonusMaxHp) == "number" then result.bonusMaxHp = result.bonusMaxHp + bonuses.bonusMaxHp end
-      if type(bonuses.bonusMaxMp) == "number" then result.bonusMaxMp = result.bonusMaxMp + bonuses.bonusMaxMp end
+      if type(bonuses.hitBonus) == "number" then result.hitBonus = result.hitBonus + bonuses.hitBonus end
     end
   end
 

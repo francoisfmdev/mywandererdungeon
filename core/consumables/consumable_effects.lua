@@ -27,18 +27,6 @@ function M.applyPotion(item, entity, events, gameState)
       push("item", "log.item.heal_hp", { amount = healed })
       return true
     end
-  elseif effect == "heal_mp" and amount > 0 and entity then
-    local maxMp = entity.maxMp or (entity._character and entity._character:getMaxMP()) or 0
-    local cur = entity.mp or 0
-    local healed = math.min(amount, math.max(0, maxMp - cur))
-    if healed > 0 then
-      entity.mp = cur + healed
-      if entity._character and entity._character.setMP then
-        entity._character:setMP(entity.mp)
-      end
-      push("item", "log.item.heal_mp", { amount = healed })
-      return true
-    end
   elseif effect == "cure_effect" and def.cureEffect and entity and entity.effectManager then
     if entity.effectManager:hasEffect(def.cureEffect) then
       entity.effectManager:removeEffect(def.cureEffect)
@@ -62,18 +50,17 @@ function M.applyWand(item, caster, target, events, gameState)
   local spell = spell_registry.get(spellId)
   if not spell then return false end
 
-  local wandOpt = { skipMpCost = true }
   local result
   local radius = tonumber(spell.radius) or 0
   if radius > 0 and gameState and gameState.entityManager then
     local cx = (target and (target.x or target.gridX)) or (caster.x or caster.gridX)
     local cy = (target and (target.y or target.gridY)) or (caster.y or caster.gridY)
     if cx and cy then
-      result = combat_resolver.resolveSpellArea(caster, spell, cx, cy, gameState.entityManager, wandOpt)
+      result = combat_resolver.resolveSpellArea(caster, spell, cx, cy, gameState.entityManager, {})
     end
   else
     local t = target or caster
-    result = combat_resolver.resolveSpell(caster, t, spell, wandOpt)
+    result = combat_resolver.resolveSpell(caster, t, spell, {})
   end
 
   if result and (result.hit or (type(result) == "table" and #result > 0)) then

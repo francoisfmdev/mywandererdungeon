@@ -4,6 +4,16 @@ local M = {}
 local platform = require("platform.love")
 local i18n = require("core.i18n")
 
+local _icon_cache = {}
+local function get_item_icon(path)
+  if not path or path == "" then return nil end
+  if _icon_cache[path] == false then return nil end
+  if _icon_cache[path] then return _icon_cache[path] end
+  local img = platform.gfx_load_image and platform.gfx_load_image(path)
+  _icon_cache[path] = img or false
+  return img
+end
+
 local function scale(w, h, baseW, baseH)
   local sw = w / baseW
   local sh = h / baseH
@@ -42,12 +52,21 @@ function M.draw_panel(x, y, w, h, titleKey)
   platform.gfx_draw_text(title, x + (w - tw) / 2, y + 14)
 end
 
-function M.draw_item_slot(x, y, w, h, label, selected)
+function M.draw_item_slot(x, y, w, h, label, selected, opts)
+  opts = opts or {}
   local colors = require("core.ui_layout").colors()
   local fill = selected and (colors.button_sel or { 0.15, 0.35, 0.8, 0.18 }) or (colors.button or { 0.1, 0.15, 0.4, 0.12 })
   platform.gfx_draw_rect("fill", x, y, w, h, fill)
   platform.gfx_draw_rect("line", x, y, w, h, colors.panel_border or { 1, 0.55, 0.15, 0.8 })
-  platform.gfx_draw_text(label or "", x + 8, y + (h - platform.gfx_get_font():getHeight()) / 2)
+  local iconSize = opts.iconSize or 16  -- Sprites items 16x16
+  local iconPath = opts.iconPath
+  local img = iconPath and get_item_icon(iconPath) or nil
+  local textX = x + 8
+  if img and platform.gfx_draw_image then
+    platform.gfx_draw_image(img, x + 4, y + (h - iconSize) / 2, iconSize, iconSize)
+    textX = x + 8 + iconSize
+  end
+  platform.gfx_draw_text(label or "", textX, y + (h - platform.gfx_get_font():getHeight()) / 2)
 end
 
 function M.draw_hint(y, hintKey)

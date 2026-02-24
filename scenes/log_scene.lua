@@ -8,7 +8,6 @@ local platform = require("platform.love")
 local log_manager = require("core.game_log.log_manager")
 
 local _scroll = 0
-local _lineHeight = 18
 local _pad = 20
 
 local function get_entries()
@@ -39,7 +38,9 @@ function M.new()
     local entries = get_entries()
     local w = platform.gfx_width()
     local h = platform.gfx_height()
-    local visibleLines = math.max(1, math.floor((h - _pad * 3 - 40) / _lineHeight))
+    local logLayout = require("core.ui_layout").get("log") or {}
+    local lineHeight = tonumber(logLayout.line_height) or 20
+    local visibleLines = math.max(1, math.floor((h - _pad * 3 - 40) / lineHeight))
     local maxScroll = math.max(0, #entries - visibleLines)
 
     if input.consume("up") then
@@ -54,6 +55,10 @@ function M.new()
   self.draw = function()
     local w = platform.gfx_width()
     local h = platform.gfx_height()
+    local logLayout = require("core.ui_layout").get("log") or {}
+    local lineHeight = tonumber(logLayout.line_height) or 20
+    local logFont = require("core.log_font").get()
+    local prevFont = logFont and platform.gfx_set_font and platform.gfx_set_font(logFont) or nil
 
     local colors = require("core.ui_layout").colors()
     platform.gfx_draw_rect("fill", 0, 0, w, h, colors.bg_dark or { 0.05, 0.04, 0.10, 1 })
@@ -65,18 +70,17 @@ function M.new()
 
     local entries = get_entries()
     local startY = _pad + 30
-    local visibleLines = math.floor((h - startY - _pad - 30) / _lineHeight)
+    local visibleLines = math.floor((h - startY - _pad - 30) / lineHeight)
 
     if #entries == 0 then
       platform.gfx_draw_text(i18n.t("log.empty"), _pad, startY)
     else
-      -- Affichage: plus récent en haut (comme l'aperçu 3 lignes), plus vieux en bas. _scroll=0 = on voit les derniers
       local n = math.min(visibleLines, #entries)
       for i = 1, n do
         local idx = #entries - _scroll - i + 1
         if idx >= 1 then
           local entry = entries[idx]
-          local y = startY + (i - 1) * _lineHeight
+          local y = startY + (i - 1) * lineHeight
           local text = format_entry(entry)
           if #text > 120 then
             text = text:sub(1, 117) .. "..."
@@ -87,6 +91,8 @@ function M.new()
     end
 
     platform.gfx_draw_text(i18n.t("log.hint"), _pad, h - _pad)
+
+    if prevFont and platform.gfx_set_font then platform.gfx_set_font(prevFont) end
   end
 
   return self

@@ -27,10 +27,33 @@ function M.getStatModifier(entity, statName)
   return math.floor((tonumber(val) or 0) / MOD_DIVISOR)
 end
 
-function M.computeHitChance(attacker, defender)
+--- Precision : arme ou baguette peut donner hitBonus. Equipement (armure) peut aussi.
+--- Si baseHitChance est defini sur l'arme, il remplace le calcul (ex: 50 pour 50 %).
+function M.computeHitChance(attacker, defender, weapon)
+  if weapon then
+    local w = weapon.base or weapon
+    local baseChance = tonumber(w.baseHitChance)
+    if baseChance then
+      local eqBonus = 0
+      if attacker._character and attacker._character.equipmentManager then
+        local bonuses = attacker._character.equipmentManager:getBonuses()
+        eqBonus = bonuses.hitBonus or 0
+      end
+      return math.max(1, math.min(100, baseChance + eqBonus))
+    end
+  end
   local attMod = M.getStatModifier(attacker, "dexterity")
   local defMod = defender and M.getStatModifier(defender, "dexterity") or 0
-  local hitChance = HIT_BASE + (attMod - defMod) * HIT_PER_MOD
+  local hitBonus = 0
+  if weapon then
+    local w = weapon.base or weapon
+    hitBonus = tonumber(w.hitBonus) or 0
+  end
+  if attacker._character and attacker._character.equipmentManager then
+    local bonuses = attacker._character.equipmentManager:getBonuses()
+    hitBonus = hitBonus + (bonuses.hitBonus or 0)
+  end
+  local hitChance = HIT_BASE + (attMod - defMod) * HIT_PER_MOD + hitBonus
   return math.max(HIT_MIN, math.min(HIT_MAX, hitChance))
 end
 
@@ -38,9 +61,15 @@ function M.rollHit(hitChance)
   return math.random(1, 100) <= hitChance
 end
 
-function M.computeCritChance(attacker)
+--- Crit : peut venir de l'arme (critBonus).
+function M.computeCritChance(attacker, weapon)
   local dexMod = M.getStatModifier(attacker, "dexterity")
-  return math.min(CRIT_MAX, CRIT_BASE + dexMod * CRIT_PER_DEX)
+  local critBonus = 0
+  if weapon then
+    local w = weapon.base or weapon
+    critBonus = tonumber(w.critBonus) or 0
+  end
+  return math.min(CRIT_MAX, CRIT_BASE + dexMod * CRIT_PER_DEX + critBonus)
 end
 
 function M.rollCrit(critChance)
@@ -94,10 +123,24 @@ function M.applyCrit(damage, isCrit)
   return damage * CRIT_MULT
 end
 
+local PHYSICAL_TYPES = { slashing = true, piercing = true, blunt = true }
+local function is_physical_type(t) return t and PHYSICAL_TYPES[t] end
+
 --- Types physiques : slashing, piercing, blunt
 --- Types elementaires : fire, ice, lightning, poison, light, dark
 function M.applyResistance(damage, damageType, defender)
   if not defender or damage <= 0 then return { damage = 0, healed = 0 } end
+
+  -- Effet ethéré : physiques = 0, magiques = x2
+  if defender.effectManager and defender.effectManager.hasEffect and defender.effectManager:hasEffect("ethereal") then
+    if is_physical_type(damageType) then
+      return { damage = 0, healed = 0 }
+    end
+    if damageType and damageType ~= "heal" then
+      return { damage = damage * 2, healed = 0 }
+    end
+  end
+
   local res
   if defender.getEffectiveResistances then
     res = defender:getEffectiveResistances() or {}

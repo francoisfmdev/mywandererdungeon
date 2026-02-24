@@ -54,7 +54,7 @@ Ce document liste **tous les endroits** à mettre à jour quand vous ajoutez du 
 | `id` | Clé unique |
 | `nameKey` | Ex: `"item.potion_hp"` pour i18n |
 | `type` | potion, scroll, wand, card, **ammo**, quest |
-| `effect` | heal_hp, heal_mp, identify, cure_effect, etc. |
+| `effect` | heal_hp, identify, cure_effect, etc. (heal_mp supprimé) |
 | `amount` | Pour potions |
 | `spellId` | Pour baguettes (doit exister dans `data/spells.lua`) |
 | `chargesMax` | Pour baguettes |
@@ -66,8 +66,22 @@ Ce document liste **tous les endroits** à mettre à jour quand vous ajoutez du 
 | **i18n** | `item.<id>` dans locale |
 | **Loot donjon** | `loot.consumables.types` : `{ id = "consumable_id", weight = N }` |
 | **Loot monstres** | `loot` dans monsters.lua |
+| **Objets globaux** | `data/loot_global.lua` (cartes type graines PMD – voir section 3b) |
 | **ConsumableEffects** | Si nouveau type d'effet → `core/consumables/consumable_effects.lua` |
 | **Loot generator** | Ammo : `item.count` généré ; wand : `item.charges` |
+
+---
+
+### 3b. Objets globaux – cartes (type graines PMD) (`data/loot_global.lua`)
+
+Objets **rares** qui peuvent apparaître sur **n'importe quel étage** de **n'importe quel donjon**, indépendamment de la config loot du donjon. Équivalent des graines dans Donjon Mystère Pokémon.
+
+| Champ | Rôle |
+|-------|------|
+| `density` | Densité (ex. 0.002 = ~2 objets pour 1000 cases au sol) |
+| `types` | `{ { id = "consumable_id", weight = N }, … }` |
+
+Pour ajouter une carte/objet général : définir dans `consumables.lua`, ajouter dans `loot_global.types`, et s'assurer que `item.<id>` existe en i18n.
 
 ---
 
@@ -130,6 +144,7 @@ Définir tout effet référencé par pièges, sorts ou potions (`applyEffect`, `
 
 | Section | Contenu |
 |---------|---------|
+| `logBoxColor` | Couleur hex fond journal (`#RRGGBB` ou `#RRGGBBAA`). Ex: `#0a0a1288` |
 | `sprites` | floor, wall, exit |
 | `entitySprites` | player, `<monster_id>` pour chaque monstre du donjon |
 | `monsters` | `{ id, weight }` – ids dans monsters.lua |
@@ -187,6 +202,7 @@ Définir tout effet référencé par pièges, sorts ou potions (`applyEffect`, `
 - [ ] `data/locale/*` : item.\<id\>
 - [ ] Si wand : spellId dans spells.lua
 - [ ] Si ammo : type "ammo", ammoFor
+- [ ] Si carte/objet general (type graines PMD) : `data/loot_global.lua` → types
 
 ### Nouveau piège
 - [ ] `data/traps/traps.lua`

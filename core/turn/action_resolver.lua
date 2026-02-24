@@ -5,8 +5,6 @@ local octo = require("core.grid.octo_dirs")
 local combat_resolver = require("core.combat.combat_resolver")
 local TrapResolver = require("core.traps.trap_resolver")
 local log_manager = require("core.game_log.log_manager")
-local TrapRegistry = require("core.traps.trap_registry")
-local spell_registry = require("core.spells.spell_registry")
 
 local function push_event(events, type, messageKey, params)
   table.insert(events, {
@@ -82,6 +80,39 @@ function M.execute(action, gameState, events)
 
     if not map:isWalkable(nx, ny) then return events, false end
 
+    -- Attaque d'opportunite : si le joueur recule face a un monstre adjacent, celui-ci attaque
+    if entity._character then
+      local function cheb_dist(ax, ay, bx, by)
+        return math.max(math.abs(bx - ax), math.abs(by - ay))
+      end
+      local monsters = entityManager:getAliveMonsters()
+      for _, monster in ipairs(monsters) do
+        if monster.hp and monster.hp > 0 then
+          local mx = monster.x or monster.gridX
+          local my = monster.y or monster.gridY
+          if mx and my then
+            local dist_old = cheb_dist(mx, my, x, y)
+            local dist_new = cheb_dist(mx, my, nx, ny)
+            if dist_old <= 1 and dist_new > dist_old then
+              local result = combat_resolver.resolveAttack(monster, entity, nil, { behavior = "attacking" })
+              local i18n = require("core.i18n")
+              local attName = monster.nameKey and i18n.t(monster.nameKey) or (monster.name or "?")
+              local defName = i18n.t("log.trap.you")
+              if result.hit then
+                local key = result.critical and "log.attack.crit" or "log.attack.hit"
+                push_event(events, "attack", key, { attacker = attName, defender = defName, damage = result.damage or 0 })
+                log_manager.add("attack", { messageKey = key, params = { attacker = attName, defender = defName, damage = result.damage or 0 } })
+              else
+                push_event(events, "attack", "log.attack.miss", { attacker = attName, defender = defName })
+                log_manager.add("attack", { messageKey = "log.attack.miss", params = { attacker = attName, defender = defName } })
+              end
+              break
+            end
+          end
+        end
+      end
+    end
+
     entityManager:moveEntity(entity, nx, ny)
     entity.x, entity.y = nx, ny
     entity.gridX, entity.gridY = nx, ny
@@ -130,19 +161,32 @@ function M.execute(action, gameState, events)
   if actionType == "attack" then
     local attacker = action.attacker
     if is_action_blocked(attacker, "attack") then
-      push_event(events, "effect", "log.effect.blocked_attack", {})
-      log_manager.add("effect", { messageKey = "log.effect.blocked_attack", params = {} })
+      local msgKey = (attacker.effectManager and attacker.effectManager.hasFear and attacker.effectManager:hasFear())
+        and "log.effect.blocked_attack_fear" or "log.effect.blocked_attack"
+      push_event(events, "effect", msgKey, {})
+      log_manager.add("effect", { messageKey = msgKey, params = {} })
       return events, false
     end
     local defender = action.defender
-    local weapon = action.weapon or attacker.weapon or gameState.defaultWeapon
-    if not attacker or not defender or not weapon then return events, false end
+    local isPlayer = attacker._character ~= nil
+    local weapon = nil
+    local attackOptions = {}
+    if isPlayer then
+      weapon = action.weapon or (attacker.equipmentManager and attacker.equipmentManager:getEquipped("weapon_main"))
+      local equip = weapon and weapon.equipment
+      weapon = (equip and equip.base) or weapon
+      weapon = weapon or gameState.defaultWeapon
+    else
+      attackOptions.behavior = action.behavior or "attacking"
+    end
+    if not attacker or not defender then return events, false end
+    if isPlayer and not weapon then return events, false end
 
-    -- Verifier et consommer munitions (arc, arbalete, gun) ou arme de jet
-    local weaponData = weapon.base or weapon
-    local ammoType = weaponData.ammoType
-    local ammoId = weaponData.ammoId or weaponData.id
-    if ammoType and attacker._character then
+    -- Verifier et consommer munitions (arc, arbalete, gun) ou arme de jet (joueur uniquement)
+    local weaponData = weapon and (weapon.base or weapon)
+    local ammoType = weaponData and weaponData.ammoType
+    local ammoId = weaponData and (weaponData.ammoId or weaponData.id)
+    if ammoType and ammoId and attacker._character then
       local player_data = require("core.player_data")
       local hasAmmo = false
       local consumeFromEquipment = false
@@ -181,7 +225,7 @@ function M.execute(action, gameState, events)
     if attacker._character then attName = i18n.t("log.trap.you") end
     if defender._character then defName = i18n.t("log.trap.you") end
 
-    local result = combat_resolver.resolveAttack(attacker, defender, weapon)
+    local result = combat_resolver.resolveAttack(attacker, defender, weapon, attackOptions)
 
     if result.hit then
       local key = result.critical and (attacker._character and "log.attack.player_crit" or "log.attack.crit")
@@ -198,73 +242,6 @@ function M.execute(action, gameState, events)
     return events, true
   end
 
-  if actionType == "cast" then
-    local caster = action.caster
-    if is_action_blocked(caster, "cast") then
-      push_event(events, "effect", "log.effect.blocked_cast", {})
-      return events, false
-    end
-    local target = action.target
-    local spellId = action.spellId
-    if not caster or not spellId then return events, false end
-
-    local spell = spell_registry.get(spellId)
-    if not spell then return events, false end
-
-    local i18n = require("core.i18n")
-    local casterName = caster.nameKey and i18n.t(caster.nameKey) or (caster.name or "caster")
-    if caster._character then casterName = i18n.t("log.trap.you") end
-
-    local radius = tonumber(spell.radius) or 0
-    if radius > 0 and entityManager then
-      local cx = (target and (target.x or target.gridX)) or (action.targetGx) or (caster.x or caster.gridX)
-      local cy = (target and (target.y or target.gridY)) or (action.targetGy) or (caster.y or caster.gridY)
-      if cx and cy then
-        local hits = combat_resolver.resolveSpellArea(caster, spell, cx, cy, entityManager)
-        for _, h in ipairs(hits) do
-          local t = h.target
-          local targetName = t.nameKey and i18n.t(t.nameKey) or (t.name or "?")
-          if t._character then targetName = i18n.t("log.trap.you") end
-          if h.healed and h.healed > 0 then
-            push_event(events, "spell", "log.spell.heal", {
-              caster = casterName,
-              target = targetName,
-              amount = h.healed,
-            })
-          elseif h.damage and h.damage > 0 then
-            push_event(events, "spell", "log.spell.damage", {
-              caster = casterName,
-              target = targetName,
-              damage = h.damage,
-            })
-          end
-        end
-        return events, true
-      end
-    end
-
-    local result = combat_resolver.resolveSpell(caster, target, spell)
-    local targetName = target and (target.nameKey and i18n.t(target.nameKey) or target.name) or "self"
-    if target and target._character then targetName = i18n.t("log.trap.you") end
-
-    if result.hit and (result.damage > 0 or result.healed > 0) then
-      if result.healed > 0 then
-        push_event(events, "spell", "log.spell.heal", {
-          caster = casterName,
-          target = targetName,
-          amount = result.healed,
-        })
-      else
-        push_event(events, "spell", "log.spell.damage", {
-          caster = casterName,
-          target = targetName,
-          damage = result.damage,
-        })
-      end
-    end
-    return events, true
-  end
-
   if actionType == "wait" then
     push_event(events, "wait", "log.wait.done", {})
     return events, true
@@ -273,7 +250,9 @@ function M.execute(action, gameState, events)
   if actionType == "use_item" then
     local player = entityManager:getPlayer()
     if is_action_blocked(player, "useItem") then
-      push_event(events, "effect", "log.effect.blocked_use_item", {})
+      local msgKey = (player.effectManager and player.effectManager.hasFear and player.effectManager:hasFear())
+        and "log.effect.blocked_use_item_fear" or "log.effect.blocked_use_item"
+      push_event(events, "effect", msgKey, {})
       return events, false
     end
     local itemIndex = action.itemIndex
@@ -314,7 +293,12 @@ function M.execute(action, gameState, events)
 
     if applied then
       if item._consumed or (def.type == "potion") or (def.type == "scroll") or (def.type == "card") then
-        require("core.player_data").remove_item(itemIndex)
+        local player_data = require("core.player_data")
+        if item.count and item.count > 1 then
+          item.count = item.count - 1
+        else
+          player_data.remove_item(itemIndex)
+        end
       end
     end
     return events, true

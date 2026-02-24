@@ -1,4 +1,4 @@
--- scenes/hub/inventory.lua - Inventaire + equipement, HUD responsive
+-- scenes/hub/inventory.lua - Inventaire consommables (max 20) + menu equipement
 local M = {}
 
 local i18n = require("core.i18n")
@@ -14,6 +14,8 @@ local equipment_slots = require("core.equipment.equipment_slots")
 local dungeon_run_state = require("core.dungeon_run_state")
 local ConsumableRegistry = require("core.consumables.consumable_registry")
 local pending_dungeon_action = require("core.pending_dungeon_action")
+
+local SLOT_ORDER = { "weapon_main", "weapon_off", "armor", "boots", "helmet", "cape", "necklace", "ring_1", "ring_2" }
 
 function M.new()
   local self = {}
@@ -44,22 +46,29 @@ function M.new()
       return
     end
 
-    local inv = player_data.get_inventory()
+    local consumables = player_data.get_consumables()
     local equipped = _char and _char.equipmentManager:getAllEquipped() or {}
     local eqList = {}
-    for slot, item in pairs(equipped) do
-      table.insert(eqList, { slot = slot, item = item })
+    for _, slot in ipairs(SLOT_ORDER) do
+      local item = equipped[slot]
+      if item then table.insert(eqList, { slot = slot, item = item }) end
+    end
+    local bagEquip = player_data.get_equipment_in_bag()
+    for _, be in ipairs(bagEquip) do
+      table.insert(eqList, { slot = "bag", item = be.item, invIndex = be.invIndex })
     end
 
     if _tab == "inventory" then
-      local n = #inv
+      local n = #consumables
       if input.consume("up") then _invSel = _invSel - 1 end
       if input.consume("down") then _invSel = _invSel + 1 end
       if _invSel < 1 then _invSel = math.max(1, n) end
       if _invSel > n then _invSel = 1 end
       if input.consume("confirm") and n > 0 then
-        local item = inv[_invSel]
-        if not item then return end
+        local entry = consumables[_invSel]
+        if not entry then return end
+        local item = entry.item
+        local invIndex = entry.invIndex
         local def = ConsumableRegistry.get(item.id or (item.base and item.base.id))
         local inDungeon = dungeon_run_state.get()
         if ConsumableRegistry.isConsumable(item) then
@@ -73,40 +82,20 @@ function M.new()
               applied = ConsumableEffects.applyPurify(item, { _character = _char }, events, {})
             end
             if applied then
-              player_data.remove_item(_invSel)
-              _invSel = math.min(_invSel, #player_data.get_inventory())
+              player_data.remove_item(invIndex)
+              _invSel = math.min(_invSel, #player_data.get_consumables())
             end
             return
           end
           if inDungeon then
             if ConsumableRegistry.needsTarget(item) then
-              pending_dungeon_action.set({ type = "use_item", itemIndex = _invSel, needsTarget = true })
+              pending_dungeon_action.set({ type = "use_item", itemIndex = invIndex, needsTarget = true })
               router.dispatch("scene:pop")
             else
-              dungeon_run_state.process_turn({ type = "use_item", itemIndex = _invSel })
+              dungeon_run_state.process_turn({ type = "use_item", itemIndex = invIndex })
               router.dispatch("scene:pop")
             end
             return
-          end
-        end
-        if item and _char then
-          local base = item.base or item
-          local slot = base.slot
-          if slot and _char.equipmentManager:canEquip(item, slot == "ring" and "ring_1" or slot) then
-            local targetSlot = (slot == "ring") and "ring_1" or slot
-            if slot == "ring" then
-              for _, rs in ipairs(equipment_slots.RING_SLOTS) do
-                if _char.equipmentManager:canEquip(item, rs) then targetSlot = rs break end
-              end
-            end
-            local ok, freed = _char.equipmentManager:equip(item, targetSlot)
-            if ok then
-              for _, prev in ipairs(freed or {}) do
-                table.insert(inv, prev)
-              end
-              table.remove(inv, _invSel)
-              _invSel = math.min(_invSel, #inv)
-            end
           end
         end
       end
@@ -119,10 +108,35 @@ function M.new()
       if input.consume("confirm") and n > 0 then
         local entry = eqList[_equipSel]
         if entry and _char then
-          local ok, result = _char.equipmentManager:unequip(entry.slot)
-          if ok and result then table.insert(inv, result) end
-          if not ok and result and result.code == "cursed" then
-            require("core.game_log.log_manager").add("item", { messageKey = "item.cursed_unequip", params = {} })
+          if entry.slot == "bag" then
+            local item = entry.item
+            local base = item.base or item
+            local targetSlot = (base.slot == "ring") and "ring_1" or base.slot
+            if base.slot == "ring" then
+              for _, rs in ipairs(equipment_slots.RING_SLOTS) do
+                if _char.equipmentManager:canEquip(item, rs) then targetSlot = rs break end
+              end
+            end
+            if _char.equipmentManager:canEquip(item, targetSlot) then
+              local inv = player_data.get_inventory()
+              local ok, freed = _char.equipmentManager:equip(item, targetSlot)
+              if ok then
+                if entry.invIndex and entry.invIndex >= 1 and entry.invIndex <= #inv then
+                  table.remove(inv, entry.invIndex)
+                end
+                for _, prev in ipairs(freed or {}) do table.insert(inv, prev) end
+                _equipSel = math.min(_equipSel, #player_data.get_consumables() + 100)
+              end
+            end
+          else
+            local ok, result = _char.equipmentManager:unequip(entry.slot)
+            if ok and result then
+              local inv = player_data.get_inventory()
+              table.insert(inv, result)
+            end
+            if not ok and result and result.code == "cursed" then
+              require("core.game_log.log_manager").add("item", { messageKey = "item.cursed_unequip", params = {} })
+            end
           end
         end
       end
@@ -133,15 +147,20 @@ function M.new()
     local w = platform.gfx_width()
     local h = platform.gfx_height()
     local img = asset_manager.get_image("house_room")
-    if img then platform.gfx_draw_image(img, 0, 0, w, h)
+    if img and platform.gfx_draw_image then platform.gfx_draw_image(img, 0, 0, w, h)
     else platform.gfx_draw_rect("fill", 0, 0, w, h, { 0.08, 0.06, 0.12, 1 }) end
 
     local layout = inventory_hud.compute_layout()
-    local inv = player_data.get_inventory()
+    local consumables = player_data.get_consumables()
     local equipped = _char and _char.equipmentManager:getAllEquipped() or {}
     local eqList = {}
-    for slot, item in pairs(equipped) do
-      table.insert(eqList, { slot = slot, item = item })
+    for _, slot in ipairs(SLOT_ORDER) do
+      local item = equipped[slot]
+      if item then table.insert(eqList, { slot = slot, item = item }) end
+    end
+    local bagEquip = player_data.get_equipment_in_bag()
+    for _, be in ipairs(bagEquip) do
+      table.insert(eqList, { slot = "bag", item = be.item, invIndex = be.invIndex })
     end
 
     local lx = layout.leftX
@@ -154,8 +173,13 @@ function M.new()
     inventory_hud.draw_panel(lx, ty, pw, ph, "hub.inventory.title")
     inventory_hud.draw_panel(rx, ty, pw, ph, "hub.equipment.title")
 
+    -- Inventaire consommables (max 20 affichés)
     local invY = ty + 45
-    for i, item in ipairs(inv) do
+    local maxConsumables = 20
+    for i = 1, math.min(#consumables, maxConsumables) do
+      local entry = consumables[i]
+      local item = entry and entry.item
+      if not item then break end
       local def = ConsumableRegistry.get(item.id or (item.base and item.base.id))
       local name = item_display.getDisplayName(item)
       local label = name
@@ -163,32 +187,50 @@ function M.new()
         label = name .. " (" .. item.charges .. "/" .. (def.chargesMax or "?") .. ")"
       elseif item.count and item.count > 1 then
         label = name .. " x" .. item.count
-      else
-        label = name .. " x1"
       end
+      local iconPath = item_display.getSpritePath(item)
       local slotY = invY + (i - 1) * (lh + 4)
+      local opts = { iconPath = iconPath }
       if _tab == "inventory" and i == _invSel then
-        inventory_hud.draw_item_slot(lx + 10, slotY, pw - 20, lh + 4, label, true)
+        inventory_hud.draw_item_slot(lx + 10, slotY, pw - 20, lh + 4, label, true, opts)
       else
-        inventory_hud.draw_item_slot(lx + 10, slotY, pw - 20, lh + 4, label, false)
+        inventory_hud.draw_item_slot(lx + 10, slotY, pw - 20, lh + 4, label, false, opts)
       end
     end
 
+    -- Tooltip effet sous la liste consommables (quand selectionné)
+    if _tab == "inventory" and #consumables > 0 and _invSel >= 1 and _invSel <= #consumables then
+      local entry = consumables[_invSel]
+      local item = entry and entry.item
+      if item then
+        local effectText = item_display.getConsumableEffectText(item)
+        if effectText and effectText ~= "" then
+          platform.gfx_draw_text(effectText, lx + 10, invY + math.min(#consumables, maxConsumables) * (lh + 4) + 8)
+        end
+      end
+    end
+
+    -- Menu equipement : slot + nom + details arme
     local eqY = ty + 45
     for i, entry in ipairs(eqList) do
-      local label = (entry.slot or "?") .. ": " .. item_display.getDisplayName(entry.item)
+      local slotLabel = entry.slot == "bag" and i18n.t("hub.equipment.slot_bag") or (i18n.t("hub.equipment.slot_" .. entry.slot) or entry.slot)
+      local name = item_display.getDisplayName(entry.item)
+      local details = item_display.getWeaponDetails(entry.item)
+      local label = slotLabel .. ": " .. name
+      if details and details ~= "" then label = label .. " [" .. details .. "]" end
+      local iconPath = item_display.getSpritePath(entry.item)
       local slotY = eqY + (i - 1) * (lh + 4)
+      local opts = { iconPath = iconPath }
       if _tab == "equipment" and i == _equipSel then
-        inventory_hud.draw_item_slot(rx + 10, slotY, pw - 20, lh + 4, label, true)
+        inventory_hud.draw_item_slot(rx + 10, slotY, pw - 20, lh + 4, label, true, opts)
       else
-        inventory_hud.draw_item_slot(rx + 10, slotY, pw - 20, lh + 4, label, false)
+        inventory_hud.draw_item_slot(rx + 10, slotY, pw - 20, lh + 4, label, false, opts)
       end
     end
 
     local goldStr = i18n.t("hub.character.gold") .. ": " .. player_data.get_gold()
     platform.gfx_draw_text(goldStr, lx, ty + ph + 15)
 
-    local tabHint = _tab == "inventory" and "hub.inventory.tab_equip" or "hub.equipment.tab_inv"
     platform.gfx_draw_text(i18n.t("hub.inventory.tab_hint"), w / 2 - 80, h - 50)
     inventory_hud.draw_hint(h - 30, "hub.inventory.hint")
   end

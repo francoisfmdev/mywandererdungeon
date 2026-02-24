@@ -2,10 +2,10 @@
 return {
   items = {
     { label = "ui.context.attack", action = "player:attack" },
-    { label = "ui.context.cast", action = "player:cast" },
     { label = "ui.context.observer", action = "player:observer" },
     { label = "ui.context.character", action = "scene:push:hub.character" },
-    { label = "ui.context.inventory", action = "player:inventory" },
+    { label = "ui.context.consumables", action = "player:consumables" },
+    { label = "ui.context.equipment", action = "player:equipment" },
     { label = "ui.context.wait", action = "player:wait" },
   },
   layout = {

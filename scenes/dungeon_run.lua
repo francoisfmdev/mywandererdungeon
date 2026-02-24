@@ -13,32 +13,61 @@ local octo = require("core.grid.octo_dirs")
 local dungeon_renderer = require("core.render.dungeon_renderer")
 local MonsterRegistry = require("core.entities.monster_registry")
 
-local CELL_W, CELL_H = 41, 41  -- ~28% plus grandes que 32 (37+10%)
+-- Zoom pixel art : 2x = 48, 2.5x = 60, 3x = 72 (objets plus gros)
+local CELL_W, CELL_H = 64, 64
+
+-- Sprite ciblage (select = curseur et case selectionnee)
+local _sprite_select
+local function get_select_sprite()
+  if not _sprite_select then _sprite_select = platform.gfx_load_image and platform.gfx_load_image("assets/generals/select.png") end
+  return _sprite_select
+end
 local MINIMAP_W, MINIMAP_H = 160, 160
 local MINIMAP_PAD = 8
 local STATS_PANEL_H = 92
 local BAR_H = 14
 local BAR_W = 140
+local BAR_W_HP = 90  -- barre PV raccourcie pour laisser place a la regen
 local HINT_ZONE = 36
 local BOTTOM_RAISE = 0.10  -- 10% de hauteur pour éviter débordement texte / chevauchement menu
 local LOG_PANEL_W = 340
-local LOG_PREVIEW_LINES = 3
-local LOG_LINE_H = 16
+local LOG_PREVIEW_LINES = 5
+local LOG_PREVIEW_MAX_CHARS = 120
 local OBSERVER_PANEL_H = 120
+
+--- Parse une couleur hex (ex: "#1a1a2e", "#1a1a2e88") en r,g,b,a (0-1)
+local function parse_hex_color(hex)
+  if not hex or hex == "" then return 0.04, 0.04, 0.08, 0.9 end
+  hex = hex:gsub("^#", "")
+  if #hex == 6 then
+    local r = tonumber(hex:sub(1, 2), 16) or 0
+    local g = tonumber(hex:sub(3, 4), 16) or 0
+    local b = tonumber(hex:sub(5, 6), 16) or 0
+    return r/255, g/255, b/255, 0.9
+  elseif #hex == 8 then
+    local r = tonumber(hex:sub(1, 2), 16) or 0
+    local g = tonumber(hex:sub(3, 4), 16) or 0
+    local b = tonumber(hex:sub(5, 6), 16) or 0
+    local a = tonumber(hex:sub(7, 8), 16) or 255
+    return r/255, g/255, b/255, a/255
+  end
+  return 0.04, 0.04, 0.08, 0.9
+end
 
 local function get_minimap_y()
   local h = platform.gfx_height()
   return h - h * BOTTOM_RAISE - HINT_ZONE - MINIMAP_H - MINIMAP_PAD
 end
 
-local function draw_stat_bar(x, y, current, maxVal, barColor)
+local function draw_stat_bar(x, y, current, maxVal, barColor, barWidth)
+  barWidth = barWidth or BAR_W
   if maxVal <= 0 then maxVal = 1 end
   local ratio = math.max(0, math.min(1, current / maxVal))
-  platform.gfx_draw_rect("fill", x, y, BAR_W, BAR_H, { 0.12, 0.1, 0.15, 1 })
+  platform.gfx_draw_rect("fill", x, y, barWidth, BAR_H, { 0.12, 0.1, 0.15, 1 })
   if ratio > 0 then
-    platform.gfx_draw_rect("fill", x + 1, y + 1, (BAR_W - 2) * ratio, BAR_H - 2, barColor or { 0.2, 0.7, 0.25, 1 })
+    platform.gfx_draw_rect("fill", x + 1, y + 1, (barWidth - 2) * ratio, BAR_H - 2, barColor or { 0.2, 0.7, 0.25, 1 })
   end
-  platform.gfx_draw_rect("line", x, y, BAR_W, BAR_H, { 0.4, 0.35, 0.5, 1 })
+  platform.gfx_draw_rect("line", x, y, barWidth, BAR_H, { 0.4, 0.35, 0.5, 1 })
   local label = tostring(current) .. " / " .. tostring(maxVal)
   platform.gfx_draw_text(label, x + 4, y + 2)
 end
@@ -65,11 +94,27 @@ local function draw_stats_panel()
   platform.gfx_draw_text(i18n.t("hub.character.level") .. " " .. char:getLevel() .. floorLabel, x, y)
   y = y + 18
   platform.gfx_draw_text(i18n.t("hub.character.hp"), x, y - 2)
-  draw_stat_bar(x, y + 2, char:getHP(), char:getMaxHP(), { 0.55, 0.15, 0.15, 1 })
+  draw_stat_bar(x, y + 2, char:getHP(), char:getMaxHP(), { 0.55, 0.15, 0.15, 1 }, BAR_W_HP)
+  -- Regen PV a cote de la barre : +X / Nt
+  local gen = (state and state.dungeonConfig and state.dungeonConfig.generation) or {}
+  local cfg = char._config or {}
+  local con = char:getEffectiveStat("constitution") or 0
+  local hpDiv = tonumber(cfg.hpRegenPerCon) or 4
+  local hpFactor = tonumber(gen.hpRegenFactor) or 1.0
+  local hpEvery = math.max(1, tonumber(gen.hpRegenInterval) or 3)
+  local hpRegen = math.max(0, math.floor(math.floor(con / hpDiv) * hpFactor))
+  local regenText = "+" .. tostring(hpRegen) .. " / " .. tostring(hpEvery) .. "t"
+  platform.gfx_draw_text(regenText, x + BAR_W_HP + 6, y + 2)
   y = y + BAR_H + 8
-  platform.gfx_draw_text(i18n.t("hub.character.mp"), x, y - 2)
-  draw_stat_bar(x, y + 2, char:getMP(), char:getMaxMP(), { 0.2, 0.4, 0.7, 1 })
-  y = y + BAR_H + 6
+  -- Plage degats arme equipee
+  local weaponItem = char.equipmentManager and char.equipmentManager:getEquipped("weapon_main")
+  local weaponDef = weaponItem and (weaponItem.base or weaponItem.equipment or weaponItem)
+  if weaponDef and (weaponDef.damageMin or weaponDef.damageMax) then
+    local dmin = tonumber(weaponDef.damageMin) or 0
+    local dmax = tonumber(weaponDef.damageMax) or 0
+    platform.gfx_draw_text(tostring(dmin) .. "-" .. tostring(dmax), x, y)
+    y = y + 16
+  end
   platform.gfx_draw_text(i18n.t("hub.character.gold") .. " " .. player_data.get_gold(), x, y)
 end
 
@@ -368,47 +413,21 @@ function M.new()
         local sdx, sdy = input_state.getSelectedDirection()
         if sdx ~= 0 or sdy ~= 0 then
           local player = state.entityManager:getPlayer()
-          local pendingAction = input_state.getPendingAction()
-          local spellId = input_state.getPendingSpellId()
-
-          if pendingAction == "cast" and spellId then
-            local spell_registry = require("core.spells.spell_registry")
-            local spell = spell_registry.get(spellId)
-            local range = (spell and spell.range) or 8
-            local target_selector = require("core.targeting.target_selector")
-            local tgt = target_selector.findTargetOrCellInDirection(
-              player.x or player.gridX, player.y or player.gridY,
-              sdx, sdy, range, state.map, state.entityManager, player
-            )
-            input_state.setMode("normal")
-            input_state.clearPending()
-            if tgt then
-              if tgt.id then
-                dungeon_run_state.process_turn({ type = "cast", spellId = spellId, targetId = tgt.id })
-              else
-                dungeon_run_state.process_turn({ type = "cast", spellId = spellId, targetGx = tgt.x, targetGy = tgt.y })
-              end
-            else
-              local log_mgr = require("core.game_log.log_manager")
-              log_mgr.add("info", { messageKey = "log.player.invalid_target", params = {} })
-            end
+          local weapon = player and player._character and player._character.equipmentManager and player._character.equipmentManager:getEquipped("weapon_main")
+          weapon = weapon and (weapon.base or weapon)
+          local range = (weapon and weapon.range) or 1
+          local target_selector = require("core.targeting.target_selector")
+          local target = target_selector.findTargetInDirection(
+            player.x or player.gridX, player.y or player.gridY,
+            sdx, sdy, range, state.map, state.entityManager, player
+          )
+          input_state.setMode("normal")
+          input_state.clearPending()
+          if target then
+            dungeon_run_state.process_turn({ type = "attack", targetId = target.id, weapon = weapon })
           else
-            local weapon = player and player._character and player._character.equipmentManager and player._character.equipmentManager:getEquipped("weapon_main")
-            weapon = weapon and (weapon.base or weapon)
-            local range = (weapon and weapon.range) or 1
-            local target_selector = require("core.targeting.target_selector")
-            local target = target_selector.findTargetInDirection(
-              player.x or player.gridX, player.y or player.gridY,
-              sdx, sdy, range, state.map, state.entityManager, player
-            )
-            input_state.setMode("normal")
-            input_state.clearPending()
-            if target then
-              dungeon_run_state.process_turn({ type = "attack", targetId = target.id, weapon = weapon })
-            else
-              local log_mgr = require("core.game_log.log_manager")
-              log_mgr.add("attack", { messageKey = "log.player.invalid_target", params = {} })
-            end
+            local log_mgr = require("core.game_log.log_manager")
+            log_mgr.add("attack", { messageKey = "log.player.invalid_target", params = {} })
           end
         end
       elseif input.consume("back") then
@@ -433,6 +452,10 @@ function M.new()
       dungeon_run_state.toggle_minimap()
       return
     end
+    if input.consume("grid_toggle") then
+      dungeon_renderer.toggleGrid()
+      return
+    end
 
     if platform.mouse_peek_click then
       local mx, my = platform.mouse_peek_click(1)
@@ -440,7 +463,9 @@ function M.new()
         local w = platform.gfx_width()
         local log_mgr = require("core.game_log.log_manager")
         local nEntries = #log_mgr.get_recent(LOG_PREVIEW_LINES)
-        local logClickH = (nEntries > 0 and (nEntries * LOG_LINE_H + 24) or 0)
+        local logLayout = require("core.ui_layout").get("log") or {}
+        local logLineH = tonumber(logLayout.line_height) or 20
+        local logClickH = (nEntries > 0 and (nEntries * logLineH + 24) or 0)
         local logClickY = 12 + OBSERVER_PANEL_H + 12
         if logClickH > 0 and mx >= MINIMAP_PAD and mx < MINIMAP_PAD + LOG_PANEL_W and my >= logClickY and my < logClickY + logClickH then
           platform.mouse_consume_click(1)
@@ -487,10 +512,7 @@ function M.new()
       end
     end
 
-    if input.consume("back") then
-      router.dispatch("scene:replace:hub_main")
-      dungeon_run_state.clear()
-    end
+    -- Pas de sortie directe par Echap : utiliser les sorties safe dans le donjon
   end
 
   self.draw = function()
@@ -521,7 +543,7 @@ function M.new()
         local gy = offY + vy
         if map:inBounds(gx, gy) and map:isExplored(gx, gy) then
           local tile = map:getTile(gx, gy)
-          dungeon_renderer.draw_tile(tile, vx * CELL_W, vy * CELL_H, CELL_W, CELL_H)
+          dungeon_renderer.draw_tile(tile, vx * CELL_W, vy * CELL_H, CELL_W, CELL_H, map, gx, gy)
           dungeon_renderer.draw_ground_loot(tile, vx * CELL_W, vy * CELL_H, CELL_W, CELL_H)
         end
       end
@@ -544,7 +566,7 @@ function M.new()
       end
     end
 
-    -- Surbrillance case selectionnee (mode ciblage direction)
+    -- Surbrillance case selectionnee (mode ciblage direction) : sprite select
     if input_state.isDirectionTarget() then
       local sdx, sdy = input_state.getSelectedDirection()
       if sdx ~= 0 or sdy ~= 0 then
@@ -552,31 +574,43 @@ function M.new()
         if map:inBounds(tx, ty) and map:isExplored(tx, ty) then
           local tvx = (tx - offX) * CELL_W
           local tvy = (ty - offY) * CELL_H
-          platform.gfx_draw_rect("line", tvx, tvy, CELL_W, CELL_H, { 1, 0.9, 0.1, 1 })
-          platform.gfx_draw_rect("line", tvx + 1, tvy + 1, CELL_W - 2, CELL_H - 2, { 1, 0.9, 0.1, 0.7 })
+          local img = get_select_sprite()
+          if img and platform.gfx_draw_image then
+            platform.gfx_draw_image(img, tvx, tvy, CELL_W, CELL_H)
+          else
+            platform.gfx_draw_rect("line", tvx, tvy, CELL_W, CELL_H, { 1, 0.9, 0.1, 1 })
+          end
         end
       end
     end
 
-    -- Mode use_item_target (carte ciblage) : curseur comme observateur
+    -- Mode use_item_target (carte ciblage) : curseur select
     if input_state.isUseItemTarget() then
       local cgx, cgy = input_state.getObserverCursor()
       if cgx and cgy and map:inBounds(cgx, cgy) and map:isExplored(cgx, cgy) then
         local cvx = (cgx - offX) * CELL_W
         local cvy = (cgy - offY) * CELL_H
-        platform.gfx_draw_rect("line", cvx, cvy, CELL_W, CELL_H, { 1, 0.5, 0.2, 1 })
-        platform.gfx_draw_rect("line", cvx + 1, cvy + 1, CELL_W - 2, CELL_H - 2, { 1, 0.5, 0.2, 0.5 })
+        local img = get_select_sprite()
+        if img and platform.gfx_draw_image then
+          platform.gfx_draw_image(img, cvx, cvy, CELL_W, CELL_H)
+        else
+          platform.gfx_draw_rect("line", cvx, cvy, CELL_W, CELL_H, { 1, 0.5, 0.2, 1 })
+        end
       end
     end
 
-    -- Mode observateur: curseur libre + HUD monstre
+    -- Mode observateur: curseur select + HUD monstre
     if input_state.isObserver() then
       local cgx, cgy = input_state.getObserverCursor()
       if cgx and cgy and map:inBounds(cgx, cgy) and map:isExplored(cgx, cgy) then
         local cvx = (cgx - offX) * CELL_W
         local cvy = (cgy - offY) * CELL_H
-        platform.gfx_draw_rect("line", cvx, cvy, CELL_W, CELL_H, { 0.2, 0.8, 1, 1 })
-        platform.gfx_draw_rect("line", cvx + 1, cvy + 1, CELL_W - 2, CELL_H - 2, { 0.2, 0.8, 1, 0.5 })
+        local img = get_select_sprite()
+        if img and platform.gfx_draw_image then
+          platform.gfx_draw_image(img, cvx, cvy, CELL_W, CELL_H)
+        else
+          platform.gfx_draw_rect("line", cvx, cvy, CELL_W, CELL_H, { 0.2, 0.8, 1, 1 })
+        end
         local entity = state.entityManager:getEntityAt(cgx, cgy)
         if entity and not entity.isPlayer and (entity.hp == nil or entity.hp > 0) and entity.monsterId then
           local def = MonsterRegistry.get(entity.monsterId)
@@ -600,20 +634,34 @@ function M.new()
 
     draw_stats_panel()
 
-    -- Journal unifie (3 dernieres phrases, clic = 200 details), sans cadre
-    -- Place sous le HUD observer pour eviter chevauchement
+    -- Journal unifie (dernieres lignes, clic = details), boite fond depuis config donjon
+    local log_font = require("core.log_font")
+    local log_layout = require("core.ui_layout").get("log") or {}
+    local log_line_h = tonumber(log_layout.line_height) or 20
     local log_mgr = require("core.game_log.log_manager")
     local log_entries = log_mgr.get_recent(LOG_PREVIEW_LINES)
     local logX = MINIMAP_PAD
     local logY = 12 + OBSERVER_PANEL_H + 12
+    local dunCfg = state.dungeonConfig or {}
+    local logBoxHex = dunCfg.logBoxColor or "#0a0a1288"
+    local boxR, boxG, boxB, boxA = parse_hex_color(logBoxHex)
+    local nLines = #log_entries > 0 and (#log_entries + 1) or 0
+    local boxH = nLines * log_line_h + (nLines > 0 and 8 or 0)
+    if boxH > 0 then
+      platform.gfx_draw_rect("fill", logX - 4, logY - 4, LOG_PANEL_W + 8, boxH, { boxR, boxG, boxB, boxA })
+      platform.gfx_draw_rect("line", logX - 4, logY - 4, LOG_PANEL_W + 8, boxH, { boxR * 1.5, boxG * 1.5, boxB * 1.5, 0.6 })
+    end
+    local log_f = log_font.get()
+    local prev_font = log_f and platform.gfx_set_font and platform.gfx_set_font(log_f) or nil
     if #log_entries > 0 then
       for i, entry in ipairs(log_entries) do
         local text = i18n.t(entry.messageKey, entry.params or {})
-        if #text > 55 then text = text:sub(1, 52) .. "..." end
-        platform.gfx_draw_text(text, logX, logY + (i - 1) * LOG_LINE_H)
+        if #text > LOG_PREVIEW_MAX_CHARS then text = text:sub(1, LOG_PREVIEW_MAX_CHARS - 3) .. "..." end
+        platform.gfx_draw_text(text, logX, logY + (i - 1) * log_line_h)
       end
-      platform.gfx_draw_text(i18n.t("log.click_hint"), logX, logY + #log_entries * LOG_LINE_H)
+      platform.gfx_draw_text(i18n.t("log.click_hint"), logX, logY + #log_entries * log_line_h)
     end
+    if prev_font and platform.gfx_set_font then platform.gfx_set_font(prev_font) end
 
     if dungeon_run_state.is_minimap_visible() then
       draw_minimap(map, px, py)

@@ -149,21 +149,6 @@ function M.update(playerAction, gameState)
       }, gameState, events)
       resolved = consumed
     end
-  elseif actionType == "cast" then
-    local target = playerAction.targetId and entityManager:getEntity(playerAction.targetId)
-    if not target and (playerAction.targetGx or playerAction.targetGy) then
-      target = { x = playerAction.targetGx, gridX = playerAction.targetGx, y = playerAction.targetGy, gridY = playerAction.targetGy }
-    end
-    local castAction = {
-      type = "cast",
-      caster = player,
-      target = target,
-      spellId = playerAction.spellId,
-      targetGx = playerAction.targetGx,
-      targetGy = playerAction.targetGy,
-    }
-    local _, consumed = ActionResolver.execute(castAction, gameState, events)
-    resolved = consumed
   elseif actionType == "wait" then
     local _, consumed = ActionResolver.execute({ type = "wait" }, gameState, events)
     resolved = consumed
@@ -198,27 +183,22 @@ function M.update(playerAction, gameState)
 
   apply_effect_phase(player, turnNumber, events)
 
-  -- Regen PV/PM (style Shiren) - joueur uniquement, bloquee si exténué
+  -- Regen PV : constitution + config donjon (PM supprime)
   local char = player._character
   local blockRegen = player.effectManager and player.effectManager:getBlockRegen()
   if char and not blockRegen then
     local cfg = char._config
+    local gen = (gameState.dungeonConfig and gameState.dungeonConfig.generation) or {}
     if cfg then
       local con = char:getEffectiveStat("constitution") or 0
-      local int = char:getEffectiveStat("intelligence") or 0
       local hpDiv = tonumber(cfg.hpRegenPerCon) or 4
-      local mpDiv = tonumber(cfg.mpRegenPerInt) or 4
-      local hpRegen = math.floor(con / hpDiv)
-      local mpRegen = math.floor(int / mpDiv)
+      local hpFactor = tonumber(gen.hpRegenFactor) or 1.0
+      local hpEvery = math.max(1, tonumber(gen.hpRegenInterval) or 3)
+      local hpRegen = math.max(0, math.floor(math.floor(con / hpDiv) * hpFactor))
       local maxHp = char:getMaxHP()
-      local maxMp = char:getMaxMP()
-      if hpRegen > 0 and (player.hp or 0) < maxHp then
+      if turnNumber > 0 and turnNumber % hpEvery == 0 and hpRegen > 0 and (player.hp or 0) < maxHp then
         player.hp = math.min((player.hp or 0) + hpRegen, maxHp)
         if char.setHP then char:setHP(player.hp) end
-      end
-      if mpRegen > 0 and (player.mp or 0) < maxMp then
-        player.mp = math.min((player.mp or 0) + mpRegen, maxMp)
-        if char.setMP then char:setMP(player.mp) end
       end
     end
   end

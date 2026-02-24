@@ -1,14 +1,17 @@
--- data/entities/monsters.lua - Data-driven (hp, stats, weapon, resistances)
--- Niveau 1 (Ruines): stats calibrees pour joueur debutant (stats 3, ~31 PV, ~13 PM)
--- Resistances completes: slashing, piercing, blunt, fire, ice, lightning, water, earth, vegetal, poison, light, dark
+-- data/entities/monsters.lua - Data-driven (hp, resistances, ai, attaques par behavior)
+-- Les monstres n'ont PAS d'equipement. Attaques definies par behavior IA.
+-- attacksByBehavior: { attacking = [...], hunting = [...], fleeing = [...] }
+-- Chaque behavior: 0, 1 ou plusieurs attaques. fleeing = souvent vide.
+-- Attaque: { hitChance, damageMin, damageMax, damageType, applyEffect?, applyEffectChance?, weight? }
 return {
   skeleton = {
     id = "skeleton",
     nameKey = "entity.skeleton",
     descriptionKey = "entity.skeleton_desc",
+    aiProfile = "patrol",
+    detectionRadius = 3,
+    patrolRadius = 3,
     hp = 10,
-    stats = { strength = 4, dexterity = 3, constitution = 4, intelligence = 2, wisdom = 2, charisma = 2 },
-    weapon = "sword",
     resistances = {
       slashing = 0,
       piercing = 50,
@@ -23,6 +26,12 @@ return {
       light = -50,
       dark = 0,
     },
+    attacksByBehavior = {
+      attacking = {
+        { hitChance = 75, damageMin = 1, damageMax = 8, damageType = "blunt", weight = 1 },
+      },
+      fleeing = {},
+    },
     loot = {
       { id = "gold", chance = 0.5, amountMin = 2, amountMax = 6 },
       { id = "potion_minor_hp", chance = 0.08 },
@@ -33,9 +42,9 @@ return {
     id = "rat",
     nameKey = "entity.rat",
     descriptionKey = "entity.rat_desc",
-    hp = 5,
-    stats = { strength = 2, dexterity = 5, constitution = 2, intelligence = 1, wisdom = 2, charisma = 1 },
-    weapon = "dagger",
+    aiProfile = "coward",
+    detectionRadius = 2,
+    hp = 4,
     resistances = {
       slashing = 0,
       piercing = 0,
@@ -50,6 +59,75 @@ return {
       light = 0,
       dark = 0,
     },
+    attacksByBehavior = {
+      attacking = {
+        { hitChance = 80, damageMin = 1, damageMax = 3, damageType = "piercing", weight = 1 },
+      },
+      fleeing = {},
+    },
+    loot = {
+      { id = "gold", chance = 0.35, amountMin = 1, amountMax = 2 },
+      { id = "potion_minor_hp", chance = 0.03 },
+    },
+  },
+  bat = {
+    id = "bat",
+    nameKey = "entity.bat",
+    descriptionKey = "entity.bat_desc",
+    aiProfile = "coward",
+    detectionRadius = 3,
+    hp = 3,
+    resistances = {
+      slashing = 0,
+      piercing = 0,
+      blunt = 0,
+      fire = 0,
+      ice = 0,
+      lightning = 0,
+      water = 0,
+      earth = 0,
+      vegetal = 0,
+      poison = 0,
+      light = 0,
+      dark = 0,
+    },
+    attacksByBehavior = {
+      attacking = {
+        { hitChance = 85, damageMin = 1, damageMax = 3, damageType = "piercing", weight = 1 },
+      },
+      fleeing = {},
+    },
+    loot = {
+      { id = "gold", chance = 0.3, amountMin = 1, amountMax = 2 },
+    },
+  },
+  gobelin = {
+    id = "gobelin",
+    nameKey = "entity.gobelin",
+    descriptionKey = "entity.gobelin_desc",
+    aiProfile = "coward",
+    detectionRadius = 2,
+    hp = 5,
+    resistances = {
+      slashing = 0,
+      piercing = 0,
+      blunt = 0,
+      fire = 0,
+      ice = 0,
+      lightning = 0,
+      water = 0,
+      earth = 0,
+      vegetal = 0,
+      poison = 25,
+      light = 0,
+      dark = 0,
+    },
+    attacksByBehavior = {
+      attacking = {
+        { hitChance = 85, damageMin = 1, damageMax = 4, damageType = "piercing", weight = 1 },
+      },
+      fleeing = {},
+    },
     loot = {
       { id = "gold", chance = 0.4, amountMin = 1, amountMax = 3 },
       { id = "potion_minor_hp", chance = 0.05 },
@@ -57,11 +135,11 @@ return {
   },
   cultist = {
     id = "cultist",
-    nameKey = "entity.cultist",
-    descriptionKey = "entity.cultist_desc",
+    nameKey = "entity.orc",
+    descriptionKey = "entity.orc_desc",
+    aiProfile = "aggressive",
+    detectionRadius = 5,
     hp = 8,
-    stats = { strength = 3, dexterity = 4, constitution = 3, intelligence = 5, wisdom = 4, charisma = 3 },
-    weapon = "dagger",
     resistances = {
       slashing = 0,
       piercing = 0,
@@ -76,10 +154,16 @@ return {
       light = 0,
       dark = 25,
     },
+    attacksByBehavior = {
+      attacking = {
+        { hitChance = 50, damageMin = 4, damageMax = 12, damageType = "slashing", weight = 1 },
+        { hitChance = 80, damageMin = 2, damageMax = 6, damageType = "slashing", weight = 1 },
+      },
+      fleeing = {},
+    },
     loot = {
       { id = "gold", chance = 0.45, amountMin = 2, amountMax = 7 },
       { id = "potion_hp", chance = 0.1 },
-      { id = "potion_mp", chance = 0.08 },
       { id = "dagger", chance = 0.05 },
     },
   },
@@ -90,9 +174,9 @@ return {
     nameKey = "entity.skeleton_lord",
     descriptionKey = "entity.skeleton_lord_desc",
     isBoss = true,
+    aiProfile = "stalker",
+    detectionRadius = 8,
     hp = 35,
-    stats = { strength = 8, dexterity = 5, constitution = 8, intelligence = 4, wisdom = 4, charisma = 3 },
-    weapon = "sword",
     resistances = {
       slashing = 10,
       piercing = 50,
@@ -106,6 +190,13 @@ return {
       poison = 0,
       light = -50,
       dark = 25,
+    },
+    attacksByBehavior = {
+      attacking = {
+        { hitChance = 70, damageMin = 3, damageMax = 12, damageType = "slashing", weight = 2 },
+        { hitChance = 50, damageMin = 8, damageMax = 18, damageType = "slashing", weight = 1 },
+      },
+      fleeing = {},
     },
     loot = {
       { id = "gold", chance = 1, amountMin = 15, amountMax = 30 },

@@ -1,4 +1,4 @@
--- core/equipment/item_instance.lua - Instance item equippable (base + affixes)
+-- core/equipment/item_instance.lua - Instance item equippable (base, bonuses)
 local M = {}
 
 local _item_base = nil

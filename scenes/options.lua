@@ -74,7 +74,8 @@ function M.new()
             router.dispatch("scene:push:bindings")
             return
           else
-            dir = 1
+            -- Clic moitie gauche = diminuer, moitie droite = augmenter
+            dir = (mx < bx + bw / 2) and -1 or 1
           end
         end
         break
@@ -105,6 +106,7 @@ function M.new()
       if not dir then
         if input.consume("right") then dir = 1
         elseif input.consume("left") then dir = -1
+        elseif _selected <= 4 and input.consume("confirm") then dir = 1  -- Entree = augmenter/ suivant
         end
       end
       if dir and _selected <= 4 then

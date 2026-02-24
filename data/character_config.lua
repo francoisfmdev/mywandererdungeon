@@ -1,4 +1,4 @@
--- data/character_config.lua - Progression coherente avec combat simplifie (sans competences)
+-- data/character_config.lua - Progression item-centric (PV fixes par niveau, pas de MP/magie)
 return {
   max_level = 100,
   stat_points_per_level = 1,
@@ -10,17 +10,10 @@ return {
   },
   stats_initial = 3,
 
-  -- MaxHP = 20 + (constitution * 3) + (level * 2)
-  baseHP = 20,
-  hpPerCon = 3,
-  hpPerLevel = 2,
+  -- PV fixes par niveau : baseHP + level * hpPerLevel (constitution n'affecte plus les PV max)
+  baseHP = 25,
+  hpPerLevel = 5,
 
-  -- MaxMP = 10 + (intelligence * 1) + floor((level - 1) / 3)
-  baseMP = 10,
-  mpPerInt = 1,
-  mpPerLevelDiv = 3,
-
-  -- Regen par tour (style Shiren) - joueur uniquement
-  hpRegenPerCon = 4,   -- floor(constitution / 4) PV par tour
-  mpRegenPerInt = 4,   -- floor(intelligence / 4) PM par tour
+  -- Regen PV (style Shiren) - constitution + config donjon
+  hpRegenPerCon = 3,
 }

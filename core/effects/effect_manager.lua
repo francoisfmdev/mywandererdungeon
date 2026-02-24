@@ -37,9 +37,11 @@ local function run_hooks(instances, hookName, entity)
   local results = {}
   for _, inst in ipairs(instances) do
     local hook = inst.def and inst.def[hookName]
-    if hook and type(hook) == "table" and (hook.damageMin or hook.damageMax) then
-      local r = apply_damage_effect(entity, hook, hook.damageType or "physical")
-      if r then table.insert(results, { effectId = inst.effectId, result = r }) end
+    if hook and type(hook) == "table" then
+      if hook.damageMin or hook.damageMax then
+        local r = apply_damage_effect(entity, hook, hook.damageType or "physical")
+        if r then table.insert(results, { effectId = inst.effectId, result = r }) end
+      end
     end
   end
   return results
@@ -92,7 +94,11 @@ function M.new(entity)
     if existing then
       if def.stacking == "ignore" then return false end
       if def.stacking == "refresh" then
-        existing.inst.remaining = tonumber(def.duration) or 1
+        local dur = tonumber(def.duration)
+        if def.durationMin and def.durationMax then
+          dur = math.random(def.durationMin, def.durationMax)
+        end
+        existing.inst.remaining = dur or 1
         existing.inst.sourceEntity = sourceEntity
         return true
       end
@@ -163,26 +169,16 @@ function M.new(entity)
   end
 
   function self:getBlockedActions()
-    local blocked = { move = false, attack = false, cast = false, useItem = false }
+    local blocked = { move = false, attack = false, useItem = false }
     for _, inst in ipairs(self._instances) do
       local d = inst.def
       if d then
         if d.blockMove then blocked.move = true end
         if d.blockAttack then blocked.attack = true end
-        if d.blockCast then blocked.cast = true end
         if d.blockUseItem then blocked.useItem = true end
       end
     end
     return blocked
-  end
-
-  function self:getMpCostMultiplier()
-    local mult = 1
-    for _, inst in ipairs(self._instances) do
-      local m = inst.def and tonumber(inst.def.mpCostMultiplier)
-      if m and m > 0 then mult = mult * m end
-    end
-    return mult
   end
 
   function self:getBlockRegen()
@@ -190,6 +186,10 @@ function M.new(entity)
       if inst.def and inst.def.blockRegen then return true end
     end
     return false
+  end
+
+  function self:hasFear()
+    return self:hasEffect("fear")
   end
 
   return self

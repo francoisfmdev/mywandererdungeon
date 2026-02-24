@@ -1,5 +1,18 @@
 -- data/traps/traps.lua - Definitions des pieges (data-driven)
 return {
+  -- Premier donjon : piege faible pour apprendre les mecaniques (pas de poison/effets)
+  {
+    id = "weak_spike",
+    trigger = "step",
+    oneShot = true,
+    levelMin = 1,
+    levelMax = 100,
+    effect = {
+      damageMin = 1,
+      damageMax = 3,
+      damageType = "piercing",
+    },
+  },
   {
     id = "spike_trap",
     trigger = "step",
@@ -60,6 +73,16 @@ return {
     levelMax = 100,
     effect = {
       applyEffect = "exhausted",
+    },
+  },
+  {
+    id = "fear_trap",
+    trigger = "step",
+    oneShot = true,
+    levelMin = 1,
+    levelMax = 100,
+    effect = {
+      applyEffect = "fear",
     },
   },
 }

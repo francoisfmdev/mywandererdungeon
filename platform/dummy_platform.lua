@@ -23,7 +23,10 @@ function M.gfx_draw_text(t, x, y, c) end
 function M.gfx_draw_rect(m, x, y, w, h, c) end
 function M.gfx_load_image(path) return nil end
 function M.gfx_draw_image(img, x, y, w, h) end
+function M.gfx_get_time() return os and os.clock and os.clock() or 0 end
 function M.gfx_get_font() return nil end
+function M.gfx_load_font(path, size) return nil end
+function M.gfx_set_font(font) return nil end
 function M.input_register() end
 function M.input_poll() end
 function M.keypressed() end

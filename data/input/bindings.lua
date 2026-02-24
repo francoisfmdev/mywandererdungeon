@@ -14,4 +14,5 @@ return {
   context = { "return", "kpenter", "space" },
   pause = { "escape" },
   minimap_toggle = { "m" },
+  grid_toggle = { "g" },
 }

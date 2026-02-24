@@ -17,6 +17,7 @@ end
 
 function M.add(eventType, payload)
   if not payload or type(payload) ~= "table" then return end
+  if eventType == "wait" then return end
   local messageKey = payload.messageKey or "log.info.unknown"
   local params = payload.params or {}
   local entry = LogEntry.new(eventType, messageKey, params, _turnNumber)

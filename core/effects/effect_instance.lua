@@ -6,11 +6,17 @@ function M.new(effectId, sourceEntity, turnNumber)
   local def = registry.get(effectId)
   if not def then return nil end
 
+  local duration = tonumber(def.duration)
+  if def.durationMin and def.durationMax then
+    duration = math.random(def.durationMin, def.durationMax)
+  end
+  duration = duration or 1
+
   local self = {}
   self.effectId = effectId
   self.sourceEntity = sourceEntity
-  self.duration = tonumber(def.duration) or 1
-  self.remaining = self.duration
+  self.duration = duration
+  self.remaining = duration
   self.stacking = def.stacking or "refresh"
   self.type = def.type or "debuff"
   self.def = def

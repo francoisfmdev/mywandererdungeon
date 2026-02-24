@@ -8,19 +8,19 @@ return {
     effect = "heal_hp",
     amount = 15,
   },
-  potion_mp = {
-    id = "potion_mp",
-    nameKey = "item.potion_mp",
-    type = "potion",
-    effect = "heal_mp",
-    amount = 8,
-  },
   potion_minor_hp = {
     id = "potion_minor_hp",
     nameKey = "item.potion_minor_hp",
     type = "potion",
     effect = "heal_hp",
     amount = 6,
+  },
+  potion_small_hp = {
+    id = "potion_small_hp",
+    nameKey = "item.potion_small_hp",
+    type = "potion",
+    effect = "heal_hp",
+    amount = 10,
   },
   scroll_identify = {
     id = "scroll_identify",
@@ -54,6 +54,13 @@ return {
   pastille_voix = {
     id = "pastille_voix",
     nameKey = "item.pastille_voix",
+    type = "potion",
+    effect = "cure_effect",
+    cureEffect = "mutisme",
+  },
+  sirop = {
+    id = "sirop",
+    nameKey = "item.sirop",
     type = "potion",
     effect = "cure_effect",
     cureEffect = "mutisme",
